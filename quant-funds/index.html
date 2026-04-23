@@ -13,17 +13,17 @@
         extend: {
           colors: {
             ink: {
-              950: '#0B1220',
-              900: '#0F172A',
-              800: '#111827',
-              700: '#1E293B',
-              600: '#334155',
-              500: '#475569',
-              400: '#64748B',
-              300: '#94A3B8',
-              200: '#CBD5E1',
-              100: '#E2E8F0',
-              50:  '#F1F5F9',
+              50:  '#FFFFFF',
+              100: '#F8FAFC',
+              200: '#F1F5F9',
+              300: '#E2E8F0',
+              400: '#CBD5E1',
+              500: '#94A3B8',
+              600: '#64748B',
+              700: '#475569',
+              800: '#334155',
+              900: '#1E293B',
+              950: '#0F172A',
             },
             gain: '#10B981',
             loss: '#EF4444',
@@ -46,56 +46,56 @@
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 
   <style>
-    html, body { background: #0B1220; color: #E2E8F0; }
+    html, body { background: #F8FAFC; color: #0F172A; }
     body { font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif; font-feature-settings: "tnum" on, "cv11" on; }
     .num { font-family: 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-    .hairline { border: 1px solid #1E293B; }
-    .hairline-b { border-bottom: 1px solid #1E293B; }
-    .hairline-t { border-top: 1px solid #1E293B; }
-    .card { background: #0F172A; border: 1px solid #1E293B; }
-    .chip { border: 1px solid #1E293B; background: #0F172A; color: #CBD5E1; }
-    .tab-active { background: #0F172A; color: #E2E8F0; border-color: #334155; }
-    .tab-idle { background: transparent; color: #94A3B8; border-color: transparent; }
+    .hairline   { border: 1px solid #E2E8F0; }
+    .hairline-b { border-bottom: 1px solid #E2E8F0; }
+    .hairline-t { border-top: 1px solid #E2E8F0; }
+    .card { background: #FFFFFF; border: 1px solid #E2E8F0; }
+    .chip { border: 1px solid #E2E8F0; background: #FFFFFF; color: #475569; }
+    .chip:hover { color: #0F172A; border-color: #CBD5E1; }
+    .tab-active { background: #0F172A; color: #FFFFFF; border-color: #0F172A; }
+    .tab-idle { background: transparent; color: #64748B; border-color: transparent; }
     table.dense th, table.dense td { padding-top: 8px; padding-bottom: 8px; }
     .scroll-soft::-webkit-scrollbar { height: 8px; width: 8px; }
-    .scroll-soft::-webkit-scrollbar-track { background: #0B1220; }
-    .scroll-soft::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
-    .ring-focus:focus { outline: none; box-shadow: 0 0 0 1px #334155; }
+    .scroll-soft::-webkit-scrollbar-track { background: #F8FAFC; }
+    .scroll-soft::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    .ring-focus:focus { outline: none; box-shadow: 0 0 0 1px #0F172A; border-color: #0F172A; }
     .lucide { width: 16px; height: 16px; stroke-width: 1.5; }
     .lucide-lg { width: 18px; height: 18px; stroke-width: 1.5; }
-    /* Remove number input spinner */
     input[type=number]::-webkit-outer-spin-button,
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    /* Loading skeleton */
     @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
-    .skeleton { background: linear-gradient(90deg, #0F172A 0%, #1E293B 50%, #0F172A 100%); background-size: 800px 100%; animation: shimmer 1.6s linear infinite; }
+    .skeleton { background: linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%); background-size: 800px 100%; animation: shimmer 1.6s linear infinite; }
+    a.navlink { transition: color .15s, border-color .15s; }
   </style>
 </head>
 
 <body class="min-h-screen">
   <!-- ============ Header ============ -->
-  <header class="hairline-b sticky top-0 z-30 backdrop-blur bg-ink-950/85">
+  <header class="hairline-b sticky top-0 z-30 backdrop-blur" style="background: rgba(248,250,252,0.85);">
     <div class="max-w-[1440px] mx-auto px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-sm flex items-center justify-center hairline">
-          <i data-lucide="bar-chart-3" class="lucide-lg text-ink-100"></i>
+        <div class="w-8 h-8 rounded-sm flex items-center justify-center hairline bg-white">
+          <i data-lucide="bar-chart-3" class="lucide-lg text-ink-950"></i>
         </div>
         <div>
-          <div class="text-[15px] font-semibold tracking-tight text-ink-50">量化基金全景看板</div>
-          <div class="text-[11px] text-ink-400 mt-0.5 num">QUANT FUND DASHBOARD · 野草创投</div>
+          <div class="text-[15px] font-semibold tracking-tight text-ink-950">量化基金全景看板</div>
+          <div class="text-[11px] text-ink-500 mt-0.5 num">QUANT FUND DASHBOARD · 野草创投</div>
         </div>
       </div>
 
       <nav class="hidden md:flex items-center gap-1 text-sm">
-        <a href="#overview"  class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">总览</a>
-        <a href="#compare"   class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">策略对比</a>
-        <a href="#heatmap"   class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">期间热力</a>
-        <a href="#breakdown" class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">策略明细</a>
-        <a href="#movers"    class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">榜单</a>
-        <a href="#screener"  class="px-3 py-1.5 rounded-sm text-ink-200 hover:text-ink-50 hairline">筛选</a>
+        <a href="#overview"  class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">总览</a>
+        <a href="#compare"   class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">策略对比</a>
+        <a href="#heatmap"   class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">期间热力</a>
+        <a href="#breakdown" class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">策略明细</a>
+        <a href="#movers"    class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">榜单</a>
+        <a href="#screener"  class="navlink px-3 py-1.5 rounded-sm text-ink-700 hover:text-ink-950 hairline bg-white">筛选</a>
       </nav>
 
-      <div class="flex items-center gap-3 text-[12px] text-ink-300">
+      <div class="flex items-center gap-3 text-[12px] text-ink-600">
         <div class="hidden sm:flex items-center gap-1.5 num">
           <i data-lucide="calendar" class="lucide"></i>
           <span id="asof-date">—</span>
@@ -114,9 +114,9 @@
     <section>
       <div class="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <div class="text-[11px] tracking-[0.2em] text-ink-400 num">OVERVIEW · T1 REPORT</div>
-          <h1 class="text-2xl font-semibold tracking-tight text-ink-50 mt-1">量化基金横向 / 纵向对比</h1>
-          <p class="text-sm text-ink-300 mt-2 max-w-2xl leading-relaxed">
+          <div class="text-[11px] tracking-[0.2em] text-ink-500 num">OVERVIEW · T1 REPORT</div>
+          <h1 class="text-2xl font-semibold tracking-tight text-ink-950 mt-1">量化基金横向 / 纵向对比</h1>
+          <p class="text-sm text-ink-600 mt-2 max-w-2xl leading-relaxed">
             基于 Wind 全量基金数据，按量化口径筛选后，对私募量化与公募量化（股票型 + 混合型）进行策略分类、期间收益、分布与榜单对比。快照日期见右上角。
           </p>
         </div>
@@ -129,71 +129,67 @@
 
     <!-- ============ Hero Metrics ============ -->
     <section id="overview" class="grid grid-cols-12 gap-4">
-      <!-- 基金宇宙 -->
       <div class="card rounded-sm col-span-12 md:col-span-6 lg:col-span-3 p-5">
         <div class="flex items-start justify-between">
-          <div class="text-[11px] tracking-widest text-ink-400 num">FUND UNIVERSE</div>
-          <i data-lucide="layers" class="lucide text-ink-400"></i>
+          <div class="text-[11px] tracking-widest text-ink-500 num">FUND UNIVERSE</div>
+          <i data-lucide="layers" class="lucide text-ink-500"></i>
         </div>
         <div class="mt-3">
-          <div class="num text-3xl font-semibold text-ink-50" id="m-total">—</div>
-          <div class="text-[12px] text-ink-400 mt-1">量化基金总数（去重）</div>
+          <div class="num text-3xl font-semibold text-ink-950" id="m-total">—</div>
+          <div class="text-[12px] text-ink-600 mt-1">量化基金总数（去重）</div>
         </div>
         <div class="hairline-t mt-4 pt-3 flex items-center justify-between text-[12px]">
-          <div><span class="text-ink-400">私募</span> <span class="num text-ink-100 ml-1.5" id="m-priv">—</span></div>
-          <div><span class="text-ink-400">公募</span> <span class="num text-ink-100 ml-1.5" id="m-pub">—</span></div>
-          <div><span class="text-ink-400">策略数</span> <span class="num text-ink-100 ml-1.5" id="m-stratn">—</span></div>
+          <div><span class="text-ink-500">私募</span> <span class="num text-ink-900 ml-1.5" id="m-priv">—</span></div>
+          <div><span class="text-ink-500">公募</span> <span class="num text-ink-900 ml-1.5" id="m-pub">—</span></div>
+          <div><span class="text-ink-500">策略数</span> <span class="num text-ink-900 ml-1.5" id="m-stratn">—</span></div>
         </div>
       </div>
 
-      <!-- 年化中位数 -->
       <div class="card rounded-sm col-span-12 md:col-span-6 lg:col-span-3 p-5">
         <div class="flex items-start justify-between">
-          <div class="text-[11px] tracking-widest text-ink-400 num">ANNUALIZED RETURN</div>
-          <i data-lucide="trending-up" class="lucide text-ink-400"></i>
+          <div class="text-[11px] tracking-widest text-ink-500 num">ANNUALIZED RETURN</div>
+          <i data-lucide="trending-up" class="lucide text-ink-500"></i>
         </div>
         <div class="mt-3 flex items-baseline gap-2">
           <div class="num text-3xl font-semibold" id="m-ann">—</div>
-          <div class="text-[12px] text-ink-400">中位数</div>
+          <div class="text-[12px] text-ink-600">中位数</div>
         </div>
-        <div class="text-[12px] text-ink-400 mt-1">全市场量化年化回报中位</div>
+        <div class="text-[12px] text-ink-600 mt-1">全市场量化年化回报中位</div>
         <div class="hairline-t mt-4 pt-3 flex items-center justify-between text-[12px]">
-          <div><span class="text-ink-400">均值</span> <span class="num ml-1.5" id="m-ann-mean">—</span></div>
-          <div><span class="text-ink-400">前 1%</span> <span class="num ml-1.5 text-gain" id="m-ann-top">—</span></div>
+          <div><span class="text-ink-500">均值</span> <span class="num ml-1.5" id="m-ann-mean">—</span></div>
+          <div><span class="text-ink-500">前 1%</span> <span class="num ml-1.5 text-gain" id="m-ann-top">—</span></div>
         </div>
       </div>
 
-      <!-- 年初至今 -->
       <div class="card rounded-sm col-span-12 md:col-span-6 lg:col-span-3 p-5">
         <div class="flex items-start justify-between">
-          <div class="text-[11px] tracking-widest text-ink-400 num">YTD RETURN</div>
-          <i data-lucide="line-chart" class="lucide text-ink-400"></i>
+          <div class="text-[11px] tracking-widest text-ink-500 num">YTD RETURN</div>
+          <i data-lucide="line-chart" class="lucide text-ink-500"></i>
         </div>
         <div class="mt-3 flex items-baseline gap-2">
           <div class="num text-3xl font-semibold" id="m-ytd">—</div>
-          <div class="text-[12px] text-ink-400">中位数</div>
+          <div class="text-[12px] text-ink-600">中位数</div>
         </div>
-        <div class="text-[12px] text-ink-400 mt-1">年初至今收益中位</div>
+        <div class="text-[12px] text-ink-600 mt-1">年初至今收益中位</div>
         <div class="hairline-t mt-4 pt-3 flex items-center justify-between text-[12px]">
-          <div><span class="text-ink-400">均值</span> <span class="num ml-1.5" id="m-ytd-mean">—</span></div>
-          <div><span class="text-ink-400">正收益占比</span> <span class="num ml-1.5 text-gain" id="m-ytd-win">—</span></div>
+          <div><span class="text-ink-500">均值</span> <span class="num ml-1.5" id="m-ytd-mean">—</span></div>
+          <div><span class="text-ink-500">正收益占比</span> <span class="num ml-1.5 text-gain" id="m-ytd-win">—</span></div>
         </div>
       </div>
 
-      <!-- 日回报 -->
       <div class="card rounded-sm col-span-12 md:col-span-6 lg:col-span-3 p-5">
         <div class="flex items-start justify-between">
-          <div class="text-[11px] tracking-widest text-ink-400 num">LATEST DAILY PNL</div>
-          <i data-lucide="activity" class="lucide text-ink-400"></i>
+          <div class="text-[11px] tracking-widest text-ink-500 num">LATEST DAILY PNL</div>
+          <i data-lucide="activity" class="lucide text-ink-500"></i>
         </div>
         <div class="mt-3 flex items-baseline gap-2">
           <div class="num text-3xl font-semibold" id="m-daily">—</div>
-          <div class="text-[12px] text-ink-400">均值</div>
+          <div class="text-[12px] text-ink-600">均值</div>
         </div>
-        <div class="text-[12px] text-ink-400 mt-1">最近一个交易日平均日回报</div>
+        <div class="text-[12px] text-ink-600 mt-1">最近一个交易日平均日回报</div>
         <div class="hairline-t mt-4 pt-3 flex items-center justify-between text-[12px]">
-          <div><span class="text-ink-400">上涨占比</span> <span class="num ml-1.5 text-gain" id="m-daily-win">—</span></div>
-          <div><span class="text-ink-400">口径</span> <span class="num ml-1.5 text-ink-100" id="m-asof">—</span></div>
+          <div><span class="text-ink-500">上涨占比</span> <span class="num ml-1.5 text-gain" id="m-daily-win">—</span></div>
+          <div><span class="text-ink-500">口径</span> <span class="num ml-1.5 text-ink-900" id="m-asof">—</span></div>
         </div>
       </div>
     </section>
@@ -201,11 +197,11 @@
     <!-- ============ 结论速览 ============ -->
     <section class="card rounded-sm p-5">
       <div class="flex items-center gap-2 mb-3">
-        <i data-lucide="sparkles" class="lucide text-ink-300"></i>
-        <div class="text-[11px] tracking-widest text-ink-400 num">KEY TAKEAWAYS · 要点速览</div>
+        <i data-lucide="sparkles" class="lucide text-ink-700"></i>
+        <div class="text-[11px] tracking-widest text-ink-500 num">KEY TAKEAWAYS · 要点速览</div>
       </div>
-      <ul id="takeaways" class="grid md:grid-cols-2 gap-x-6 gap-y-2 text-[13px] leading-relaxed text-ink-200 list-disc list-inside">
-        <li class="text-ink-400">加载中 …</li>
+      <ul id="takeaways" class="grid md:grid-cols-2 gap-x-6 gap-y-2 text-[13px] leading-relaxed text-ink-800 list-disc list-inside">
+        <li class="text-ink-500">加载中 …</li>
       </ul>
     </section>
 
@@ -213,8 +209,8 @@
     <section id="compare" class="card rounded-sm">
       <div class="hairline-b px-5 py-4 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div class="text-[11px] tracking-widest text-ink-400 num">STRATEGY COMPARISON</div>
-          <div class="text-[15px] text-ink-50 font-medium mt-0.5">各策略期间收益（中位数，%）</div>
+          <div class="text-[11px] tracking-widest text-ink-500 num">STRATEGY COMPARISON</div>
+          <div class="text-[15px] text-ink-950 font-medium mt-0.5">各策略期间收益（中位数，%）</div>
         </div>
         <div class="flex items-center gap-1 text-[12px]" id="compare-mode">
           <button data-mode="bar"  class="tab-active px-3 py-1 rounded-sm hairline">分组柱</button>
@@ -228,12 +224,12 @@
     <section id="heatmap" class="card rounded-sm">
       <div class="hairline-b px-5 py-4 flex items-center justify-between">
         <div>
-          <div class="text-[11px] tracking-widest text-ink-400 num">PERIOD × STRATEGY HEATMAP</div>
-          <div class="text-[15px] text-ink-50 font-medium mt-0.5">期间 × 策略 收益热力（中位数，%）</div>
+          <div class="text-[11px] tracking-widest text-ink-500 num">PERIOD × STRATEGY HEATMAP</div>
+          <div class="text-[15px] text-ink-950 font-medium mt-0.5">期间 × 策略 收益热力（中位数，%）</div>
         </div>
-        <div class="text-[11px] text-ink-400 num flex items-center gap-3">
+        <div class="text-[11px] text-ink-500 num flex items-center gap-3">
           <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2" style="background:#EF4444"></span>负收益</span>
-          <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2" style="background:#334155"></span>持平</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2" style="background:#F1F5F9"></span>持平</span>
           <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2" style="background:#10B981"></span>正收益</span>
         </div>
       </div>
@@ -244,11 +240,11 @@
     <section id="breakdown" class="card rounded-sm">
       <div class="hairline-b px-5 py-4 flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div class="text-[11px] tracking-widest text-ink-400 num">STRATEGY BREAKDOWN</div>
-          <div class="text-[15px] text-ink-50 font-medium mt-0.5">策略维度明细（按选定期间）</div>
+          <div class="text-[11px] tracking-widest text-ink-500 num">STRATEGY BREAKDOWN</div>
+          <div class="text-[15px] text-ink-950 font-medium mt-0.5">策略维度明细（按选定期间）</div>
         </div>
         <div class="flex items-center gap-2 text-[12px]">
-          <label class="text-ink-400">期间</label>
+          <label class="text-ink-600">期间</label>
           <select id="bk-period" class="chip px-2.5 py-1 rounded-sm ring-focus">
             <option value="日回报">日回报</option>
             <option value="近一周">近一周</option>
@@ -264,9 +260,9 @@
       </div>
       <div class="overflow-x-auto scroll-soft">
         <table class="dense w-full text-[13px]">
-          <thead class="text-ink-400 text-[11px] tracking-wider uppercase num">
+          <thead class="text-ink-500 text-[11px] tracking-wider uppercase num bg-ink-100">
             <tr class="hairline-b">
-              <th class="text-left  px-5">策略</th>
+              <th class="text-left  px-5 py-2.5">策略</th>
               <th class="text-right">样本数</th>
               <th class="text-right">均值</th>
               <th class="text-right">中位数</th>
@@ -278,7 +274,7 @@
               <th class="text-right pr-5">正收益率</th>
             </tr>
           </thead>
-          <tbody id="bk-body" class="text-ink-100 num"></tbody>
+          <tbody id="bk-body" class="text-ink-900 num"></tbody>
         </table>
       </div>
     </section>
@@ -288,8 +284,8 @@
       <div class="card rounded-sm col-span-12 lg:col-span-6">
         <div class="hairline-b px-5 py-4 flex items-center justify-between">
           <div>
-            <div class="text-[11px] tracking-widest text-ink-400 num">TOP MOVERS</div>
-            <div class="text-[15px] text-ink-50 font-medium mt-0.5">表现最好的基金</div>
+            <div class="text-[11px] tracking-widest text-ink-500 num">TOP MOVERS</div>
+            <div class="text-[15px] text-ink-950 font-medium mt-0.5">表现最好的基金</div>
           </div>
           <div class="flex items-center gap-1 text-[12px]" id="mv-top-mode">
             <button data-k="ytd_top" class="tab-active px-2.5 py-1 rounded-sm hairline">年初至今</button>
@@ -302,8 +298,8 @@
       <div class="card rounded-sm col-span-12 lg:col-span-6">
         <div class="hairline-b px-5 py-4 flex items-center justify-between">
           <div>
-            <div class="text-[11px] tracking-widest text-ink-400 num">BOTTOM MOVERS</div>
-            <div class="text-[15px] text-ink-50 font-medium mt-0.5">表现最差的基金</div>
+            <div class="text-[11px] tracking-widest text-ink-500 num">BOTTOM MOVERS</div>
+            <div class="text-[15px] text-ink-950 font-medium mt-0.5">表现最差的基金</div>
           </div>
           <div class="flex items-center gap-1 text-[12px]" id="mv-bot-mode">
             <button data-k="ytd_bot" class="tab-active px-2.5 py-1 rounded-sm hairline">年初至今</button>
@@ -319,33 +315,33 @@
       <div class="hairline-b px-5 py-4">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div class="text-[11px] tracking-widest text-ink-400 num">FUND SCREENER</div>
-            <div class="text-[15px] text-ink-50 font-medium mt-0.5">全量筛选表</div>
+            <div class="text-[11px] tracking-widest text-ink-500 num">FUND SCREENER</div>
+            <div class="text-[15px] text-ink-950 font-medium mt-0.5">全量筛选表</div>
           </div>
           <div class="flex items-center gap-2 text-[12px]">
             <div class="relative">
-              <i data-lucide="search" class="lucide absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400"></i>
-              <input id="sc-q" type="text" placeholder="搜索代码、名称、管理人…" class="chip pl-8 pr-3 py-1.5 rounded-sm w-64 ring-focus placeholder-ink-500" />
+              <i data-lucide="search" class="lucide absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-500"></i>
+              <input id="sc-q" type="text" placeholder="搜索代码、名称、管理人…" class="chip pl-8 pr-3 py-1.5 rounded-sm w-64 ring-focus placeholder-ink-400" />
             </div>
-            <button id="sc-export" class="chip px-3 py-1.5 rounded-sm hover:text-ink-50 inline-flex items-center gap-1.5">
+            <button id="sc-export" class="chip px-3 py-1.5 rounded-sm inline-flex items-center gap-1.5">
               <i data-lucide="download" class="lucide"></i> 导出 CSV
             </button>
           </div>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
-          <span class="text-ink-400">来源</span>
+          <span class="text-ink-600">来源</span>
           <div id="sc-source" class="flex items-center gap-1 flex-wrap"></div>
-          <span class="text-ink-400 ml-3">策略</span>
+          <span class="text-ink-600 ml-3">策略</span>
           <div id="sc-strategy" class="flex items-center gap-1 flex-wrap"></div>
-          <span class="text-ink-400 ml-3 num" id="sc-count">—</span>
+          <span class="text-ink-600 ml-3 num" id="sc-count">—</span>
         </div>
       </div>
 
       <div class="overflow-x-auto scroll-soft">
         <table class="dense w-full text-[12.5px]">
-          <thead class="text-ink-400 text-[11px] tracking-wider uppercase num sticky top-0 bg-ink-900/80 backdrop-blur">
+          <thead class="text-ink-500 text-[11px] tracking-wider uppercase num sticky top-0 bg-ink-100">
             <tr class="hairline-b">
-              <th class="text-left  px-5 cursor-pointer" data-sort="代码">代码</th>
+              <th class="text-left  px-5 py-2.5 cursor-pointer" data-sort="代码">代码</th>
               <th class="text-left        cursor-pointer" data-sort="名称">名称</th>
               <th class="text-left        cursor-pointer" data-sort="策略">策略</th>
               <th class="text-left        cursor-pointer" data-sort="来源">来源</th>
@@ -360,16 +356,16 @@
               <th class="text-right pr-5  cursor-pointer" data-sort="年化回报">年化</th>
             </tr>
           </thead>
-          <tbody id="sc-body" class="text-ink-100 num"></tbody>
+          <tbody id="sc-body" class="text-ink-900 num"></tbody>
         </table>
       </div>
-      <div class="hairline-t px-5 py-3 flex items-center justify-between text-[12px] text-ink-300">
+      <div class="hairline-t px-5 py-3 flex items-center justify-between text-[12px] text-ink-700">
         <div id="sc-page-info" class="num">—</div>
         <div class="flex items-center gap-1">
-          <button id="sc-prev" class="chip px-2.5 py-1 rounded-sm hover:text-ink-50 inline-flex items-center gap-1">
+          <button id="sc-prev" class="chip px-2.5 py-1 rounded-sm inline-flex items-center gap-1">
             <i data-lucide="chevron-left" class="lucide"></i> 上一页
           </button>
-          <button id="sc-next" class="chip px-2.5 py-1 rounded-sm hover:text-ink-50 inline-flex items-center gap-1">
+          <button id="sc-next" class="chip px-2.5 py-1 rounded-sm inline-flex items-center gap-1">
             下一页 <i data-lucide="chevron-right" class="lucide"></i>
           </button>
         </div>
@@ -378,22 +374,22 @@
 
     <!-- ============ Methodology ============ -->
     <section class="card rounded-sm p-5">
-      <div class="text-[11px] tracking-widest text-ink-400 num mb-2">METHODOLOGY · 口径说明</div>
-      <div class="grid md:grid-cols-2 gap-x-8 gap-y-2 text-[12.5px] text-ink-300 leading-relaxed">
+      <div class="text-[11px] tracking-widest text-ink-500 num mb-2">METHODOLOGY · 口径说明</div>
+      <div class="grid md:grid-cols-2 gap-x-8 gap-y-2 text-[12.5px] text-ink-700 leading-relaxed">
         <div>
-          <span class="text-ink-100 font-medium">私募量化口径：</span>
+          <span class="text-ink-950 font-medium">私募量化口径：</span>
           基金投资类型 ∈ 量化多头、阿尔法策略、股票多空、股票市场中性、其他市场中性、管理期货、套利策略、趋势策略。
         </div>
         <div>
-          <span class="text-ink-100 font-medium">公募量化口径：</span>
+          <span class="text-ink-950 font-medium">公募量化口径：</span>
           股票型 + 混合型基金，名称或业绩比较基准包含"量化 / 指数增强 / 对冲 / 阿尔法"之一。
         </div>
         <div>
-          <span class="text-ink-100 font-medium">收益单位：</span>
+          <span class="text-ink-950 font-medium">收益单位：</span>
           所有"近一周 / 近一月 / … / 年化回报"均为 <span class="num">百分比（%）</span>。
         </div>
         <div>
-          <span class="text-ink-100 font-medium">数据来源：</span>
+          <span class="text-ink-950 font-medium">数据来源：</span>
           Wind 资讯，快照截至 <span class="num" id="mm-asof">—</span>。本看板仅用于研究讨论，不构成投资建议。
         </div>
       </div>

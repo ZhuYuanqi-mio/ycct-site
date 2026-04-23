@@ -1,19 +1,24 @@
-/* 量化基金全景看板 - 前端交互逻辑 */
+/* 量化基金全景看板 - 前端交互逻辑（白色主题）*/
 (function () {
   'use strict';
 
   const COLORS = {
-    bg0: '#0B1220',
-    bg1: '#0F172A',
-    bg2: '#1E293B',
-    line: '#334155',
-    text: '#E2E8F0',
-    dim: '#94A3B8',
-    muted: '#64748B',
-    gain: '#10B981',
-    loss: '#EF4444',
-    neutral: '#94A3B8',
-    palette: ['#38BDF8','#A78BFA','#F472B6','#FB923C','#FACC15','#34D399','#F87171','#60A5FA','#C084FC','#4ADE80','#FB7185','#22D3EE'],
+    canvas:  '#F8FAFC',
+    card:    '#FFFFFF',
+    soft:    '#F1F5F9',
+    border:  '#E2E8F0',
+    line:    '#CBD5E1',
+    heading: '#0F172A',
+    text:    '#334155',
+    dim:     '#64748B',
+    muted:   '#94A3B8',
+    gain:    '#10B981',
+    loss:    '#EF4444',
+    palette: [
+      '#0F172A', '#0284C7', '#7C3AED', '#DB2777',
+      '#EA580C', '#CA8A04', '#059669', '#0891B2',
+      '#4338CA', '#BE123C', '#15803D', '#92400E',
+    ],
   };
 
   // ---------------- 工具函数 ----------------
@@ -27,7 +32,7 @@
     return Number(v).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   };
   const fmtInt = (v) => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US');
-  const cls = (v) => v === null || v === undefined || Number.isNaN(v) ? 'text-ink-400' : (v > 0 ? 'text-gain' : (v < 0 ? 'text-loss' : 'text-ink-300'));
+  const cls = (v) => v === null || v === undefined || Number.isNaN(v) ? 'text-ink-500' : (v > 0 ? 'text-gain' : (v < 0 ? 'text-loss' : 'text-ink-600'));
 
   async function loadJSON(path) {
     const r = await fetch(path, { cache: 'no-cache' });
@@ -42,7 +47,15 @@
   // ---------------- Hero 指标 ----------------
   function renderOverview(ov) {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    const setCls = (id, v) => { const el = document.getElementById(id); if (el) el.classList.add(cls(v).replace('text-ink-400','text-ink-50')); };
+    const setCls = (id, v) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('text-gain', 'text-loss', 'text-ink-500', 'text-ink-950');
+      if (v === null || v === undefined || Number.isNaN(v)) el.classList.add('text-ink-500');
+      else if (v > 0) el.classList.add('text-gain');
+      else if (v < 0) el.classList.add('text-loss');
+      else el.classList.add('text-ink-950');
+    };
 
     set('asof-date', ov.asOf || '—');
     set('m-asof',    ov.asOf || '—');
@@ -71,29 +84,27 @@
     if (!ul) return;
     const items = [];
 
-    items.push(`全市场共覆盖 <b class="text-ink-50 num">${fmtInt(ov.totalFunds)}</b> 只量化基金，
+    items.push(`全市场共覆盖 <b class="text-ink-950 num">${fmtInt(ov.totalFunds)}</b> 只量化基金，
       其中私募 <span class="num">${fmtInt(ov.privateFunds)}</span> 只、公募 <span class="num">${fmtInt(ov.publicFunds)}</span> 只。`);
 
     items.push(`年初至今正收益占比 <b class="text-gain num">${ov.ytdWinRate?.toFixed(1) ?? '—'}%</b>，
       中位收益 <b class="${ov.ytdMedian >= 0 ? 'text-gain' : 'text-loss'} num">${fmtPct(ov.ytdMedian)}</b>，
       年化中位 <b class="${ov.annMedian >= 0 ? 'text-gain' : 'text-loss'} num">${fmtPct(ov.annMedian)}</b>。`);
 
-    // 近一年按策略中位数找出最优 / 最差
     try {
       const pi = cmp.periods.indexOf('近一年');
       if (pi >= 0) {
         const scored = cmp.series.map(s => ({ name: s.name, v: s.values[pi] })).filter(s => s.v !== null);
         scored.sort((a,b) => b.v - a.v);
         if (scored.length) {
-          items.push(`按近一年收益中位数，领先策略为 <b class="text-ink-50">${scored[0].name}</b>
+          items.push(`按近一年收益中位数，领先策略为 <b class="text-ink-950">${scored[0].name}</b>
             （<span class="text-gain num">${fmtPct(scored[0].v)}</span>），
-            落后策略为 <b class="text-ink-50">${scored[scored.length-1].name}</b>
+            落后策略为 <b class="text-ink-950">${scored[scored.length-1].name}</b>
             （<span class="${scored[scored.length-1].v>=0?'text-gain':'text-loss'} num">${fmtPct(scored[scored.length-1].v)}</span>）。`);
         }
       }
     } catch (e) { /* ignore */ }
 
-    // 公募 vs 私募（近一年中位）
     try {
       const pi = cmp.periods.indexOf('近一年');
       const pub = cmp.series.filter(s => s.name.startsWith('公募'));
@@ -114,7 +125,7 @@
     items.push(`热力图：负值以 <span class="text-loss">红</span>、正值以 <span class="text-gain">绿</span> 显示；
       同一策略行内颜色由冷至暖代表期间拉长后的收益累积。`);
 
-    ul.innerHTML = items.map(t => `<li class="marker:text-ink-500">${t}</li>`).join('');
+    ul.innerHTML = items.map(t => `<li class="marker:text-ink-400">${t}</li>`).join('');
   }
 
   // ---------------- 策略对比图 ----------------
@@ -130,31 +141,38 @@
       symbol: 'circle',
       symbolSize: 6,
       itemStyle: { color: COLORS.palette[i % COLORS.palette.length] },
-      lineStyle: mode === 'line' ? { width: 1.5 } : undefined,
+      lineStyle: mode === 'line' ? { width: 1.8 } : undefined,
       barMaxWidth: 16,
       barGap: '10%',
       emphasis: { focus: 'series' },
     }));
     chartCompare.setOption({
       backgroundColor: 'transparent',
-      grid: { left: 48, right: 24, top: 36, bottom: 56, containLabel: true },
+      grid: { left: 48, right: 24, top: 36, bottom: 60, containLabel: true },
       legend: {
         bottom: 0, type: 'scroll', itemWidth: 10, itemHeight: 10, icon: 'rect',
         textStyle: { color: COLORS.dim, fontSize: 11 },
         pageTextStyle: { color: COLORS.dim },
+        pageIconColor: COLORS.text,
+        pageIconInactiveColor: COLORS.line,
       },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: COLORS.bg1,
-        borderColor: COLORS.bg2,
+        backgroundColor: COLORS.card,
+        borderColor: COLORS.border,
         borderWidth: 1,
         textStyle: { color: COLORS.text, fontSize: 12 },
-        axisPointer: { type: mode === 'line' ? 'cross' : 'shadow', lineStyle: { color: COLORS.line } },
+        axisPointer: {
+          type: mode === 'line' ? 'cross' : 'shadow',
+          lineStyle: { color: COLORS.line },
+          shadowStyle: { color: 'rgba(15, 23, 42, 0.04)' },
+        },
         valueFormatter: (v) => v === null || v === undefined ? '—' : v.toFixed(2) + '%',
+        extraCssText: 'box-shadow: 0 1px 3px rgba(15,23,42,0.08);',
       },
       xAxis: {
         type: 'category', data: cmp.periods,
-        axisLine: { lineStyle: { color: COLORS.bg2 } },
+        axisLine: { lineStyle: { color: COLORS.border } },
         axisTick: { show: false },
         axisLabel: { color: COLORS.dim, fontSize: 11 },
       },
@@ -162,7 +180,7 @@
         type: 'value',
         axisLine: { show: false },
         axisTick: { show: false },
-        splitLine: { lineStyle: { color: COLORS.bg2, type: 'dashed' } },
+        splitLine: { lineStyle: { color: COLORS.soft, type: 'dashed' } },
         axisLabel: { color: COLORS.dim, fontSize: 11, formatter: '{value}%' },
       },
       series,
@@ -180,18 +198,19 @@
 
     chartHeat.setOption({
       backgroundColor: 'transparent',
-      grid: { left: 120, right: 40, top: 16, bottom: 32 },
+      grid: { left: 120, right: 40, top: 16, bottom: 40 },
       tooltip: {
-        backgroundColor: COLORS.bg1,
-        borderColor: COLORS.bg2,
+        backgroundColor: COLORS.card,
+        borderColor: COLORS.border,
         borderWidth: 1,
         textStyle: { color: COLORS.text, fontSize: 12 },
+        extraCssText: 'box-shadow: 0 1px 3px rgba(15,23,42,0.08);',
         formatter: (p) => {
           const period = h.periods[p.data[0]];
           const strat = h.strategies[p.data[1]];
           const v = p.data[2];
           return `<div style="font-size:11px;color:${COLORS.dim};letter-spacing:.08em">${strat}</div>
-                  <div style="margin-top:2px">${period} · <span style="font-family:'JetBrains Mono',monospace;color:${v>=0?COLORS.gain:COLORS.loss}">${v===null?'—':v.toFixed(2)+'%'}</span></div>`;
+                  <div style="margin-top:2px;color:${COLORS.text}">${period} · <span style="font-family:'JetBrains Mono',monospace;color:${v>=0?COLORS.gain:COLORS.loss}">${v===null?'—':v.toFixed(2)+'%'}</span></div>`;
         }
       },
       xAxis: {
@@ -204,16 +223,12 @@
         type: 'category', data: h.strategies,
         splitArea: { show: false },
         axisLine: { show: false }, axisTick: { show: false },
-        axisLabel: { color: COLORS.text, fontSize: 12 },
+        axisLabel: { color: COLORS.heading, fontSize: 12 },
       },
       visualMap: {
         min: -absMax, max: absMax,
-        calculable: false, orient: 'horizontal',
-        left: 'center', bottom: 0,
-        itemWidth: 10, itemHeight: 140,
-        textStyle: { color: COLORS.dim, fontSize: 11 },
-        show: false,
-        inRange: { color: [COLORS.loss, '#7F1D1D', COLORS.bg2, '#065F46', COLORS.gain] },
+        calculable: false, show: false,
+        inRange: { color: ['#B91C1C', '#FCA5A5', '#FEE2E2', '#F1F5F9', '#D1FAE5', '#6EE7B7', '#047857'] },
       },
       series: [{
         name: '中位收益',
@@ -221,13 +236,13 @@
         data: h.matrix,
         label: {
           show: true,
-          color: COLORS.text,
+          color: COLORS.heading,
           fontSize: 11,
           fontFamily: 'JetBrains Mono, monospace',
           formatter: (p) => p.data[2] === null ? '—' : p.data[2].toFixed(1),
         },
-        itemStyle: { borderColor: COLORS.bg0, borderWidth: 2 },
-        emphasis: { itemStyle: { borderColor: COLORS.text, borderWidth: 1 } },
+        itemStyle: { borderColor: COLORS.card, borderWidth: 2 },
+        emphasis: { itemStyle: { borderColor: COLORS.heading, borderWidth: 1 } },
       }],
     }, true);
   }
@@ -243,18 +258,18 @@
     });
     tbody.innerHTML = rows.map(r => {
       const s = r[period] || {};
-      const c = (v) => v === null || v === undefined ? 'text-ink-400' : (v > 0 ? 'text-gain' : v < 0 ? 'text-loss' : '');
+      const c = (v) => v === null || v === undefined ? 'text-ink-500' : (v > 0 ? 'text-gain' : v < 0 ? 'text-loss' : '');
       return `
-        <tr class="hairline-b hover:bg-ink-900/60">
-          <td class="px-5 text-left font-medium text-ink-50">${r.strategy}</td>
-          <td class="text-right">${fmtInt(s.count ?? r.count)}</td>
+        <tr class="hairline-b hover:bg-ink-100">
+          <td class="px-5 text-left font-medium text-ink-950">${r.strategy}</td>
+          <td class="text-right text-ink-700">${fmtInt(s.count ?? r.count)}</td>
           <td class="text-right ${c(s.mean)}">${fmtPct(s.mean)}</td>
           <td class="text-right ${c(s.median)} font-semibold">${fmtPct(s.median)}</td>
-          <td class="text-right text-ink-300">${fmtPct(s.p25)}</td>
-          <td class="text-right text-ink-300">${fmtPct(s.p75)}</td>
+          <td class="text-right text-ink-700">${fmtPct(s.p25)}</td>
+          <td class="text-right text-ink-700">${fmtPct(s.p75)}</td>
           <td class="text-right ${c(s.max)}">${fmtPct(s.max)}</td>
           <td class="text-right ${c(s.min)}">${fmtPct(s.min)}</td>
-          <td class="text-right text-ink-300">${s.std === null || s.std === undefined ? '—' : s.std.toFixed(2)}</td>
+          <td class="text-right text-ink-700">${s.std === null || s.std === undefined ? '—' : s.std.toFixed(2)}</td>
           <td class="text-right pr-5 ${s.win_rate>=0.5?'text-gain':'text-loss'}">${s.win_rate === null || s.win_rate === undefined ? '—' : (s.win_rate*100).toFixed(1) + '%'}</td>
         </tr>`;
     }).join('');
@@ -266,16 +281,16 @@
     if (!mount) return;
     const rows = moversData[key] || [];
     mount.innerHTML = `
-      <div class="divide-y divide-ink-700/60">
+      <div class="divide-y" style="--tw-divide-opacity:1;">
         ${rows.map((r, i) => `
-          <div class="flex items-center gap-3 px-3 py-2 hover:bg-ink-900/60">
+          <div class="flex items-center gap-3 px-3 py-2 hover:bg-ink-100" style="border-bottom: 1px solid #F1F5F9;">
             <div class="num text-[11px] text-ink-500 w-6 text-right">${(i+1).toString().padStart(2, '0')}</div>
             <div class="flex-1 min-w-0">
-              <div class="text-[13px] text-ink-50 truncate">${r.name}</div>
-              <div class="text-[11px] text-ink-400 num flex items-center gap-2">
+              <div class="text-[13px] text-ink-950 truncate">${r.name}</div>
+              <div class="text-[11px] text-ink-500 num flex items-center gap-2 mt-0.5">
                 <span>${r.code}</span>
                 <span class="chip px-1.5 py-0.5 rounded-sm text-[10px]">${r.strategy}</span>
-                <span class="text-ink-500">${r.source}</span>
+                <span class="text-ink-400">${r.source}</span>
               </div>
             </div>
             <div class="num text-[14px] font-semibold ${r.value>=0?'text-gain':'text-loss'}">${fmtPct(r.value)}</div>
@@ -307,21 +322,39 @@
 
     const srcMount = document.getElementById('sc-source');
     const stMount  = document.getElementById('sc-strategy');
-    srcMount.innerHTML = sc.sources.map(s => `<button class="chip px-2 py-0.5 rounded-sm tab-active" data-v="${s}">${s}</button>`).join('');
-    stMount.innerHTML  = sc.strategies.map(s => `<button class="chip px-2 py-0.5 rounded-sm tab-active" data-v="${s}">${s}</button>`).join('');
+    srcMount.innerHTML = sc.sources.map(s => `<button class="tab-active px-2 py-0.5 rounded-sm border" data-v="${s}">${s}</button>`).join('');
+    stMount.innerHTML  = sc.strategies.map(s => `<button class="tab-active px-2 py-0.5 rounded-sm border" data-v="${s}">${s}</button>`).join('');
 
-    srcMount.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-      const v = b.dataset.v;
-      if (sc.activeSources.has(v)) { sc.activeSources.delete(v); b.classList.remove('tab-active'); b.classList.add('tab-idle'); }
-      else { sc.activeSources.add(v); b.classList.add('tab-active'); b.classList.remove('tab-idle'); }
-      sc.page = 0; applyFilter();
-    }));
-    stMount.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-      const v = b.dataset.v;
-      if (sc.activeStrategies.has(v)) { sc.activeStrategies.delete(v); b.classList.remove('tab-active'); b.classList.add('tab-idle'); }
-      else { sc.activeStrategies.add(v); b.classList.add('tab-active'); b.classList.remove('tab-idle'); }
-      sc.page = 0; applyFilter();
-    }));
+    const toggle = (b, active) => {
+      if (active) {
+        b.classList.add('tab-active'); b.classList.remove('tab-idle');
+        b.style.background = '#0F172A'; b.style.color = '#FFFFFF'; b.style.borderColor = '#0F172A';
+      } else {
+        b.classList.remove('tab-active'); b.classList.add('tab-idle');
+        b.style.background = '#FFFFFF'; b.style.color = '#64748B'; b.style.borderColor = '#E2E8F0';
+      }
+    };
+
+    srcMount.querySelectorAll('button').forEach(b => {
+      toggle(b, true);
+      b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        const active = !sc.activeSources.has(v);
+        if (active) sc.activeSources.add(v); else sc.activeSources.delete(v);
+        toggle(b, active);
+        sc.page = 0; applyFilter();
+      });
+    });
+    stMount.querySelectorAll('button').forEach(b => {
+      toggle(b, true);
+      b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        const active = !sc.activeStrategies.has(v);
+        if (active) sc.activeStrategies.add(v); else sc.activeStrategies.delete(v);
+        toggle(b, active);
+        sc.page = 0; applyFilter();
+      });
+    });
 
     document.getElementById('sc-q').addEventListener('input', (e) => {
       sc.q = (e.target.value || '').trim().toLowerCase();
@@ -381,12 +414,12 @@
     const rows = sc.view.slice(start, start + sc.pageSize);
 
     tbody.innerHTML = rows.map(r => {
-      const c = (v) => v === null || v === undefined ? 'text-ink-400' : (v > 0 ? 'text-gain' : v < 0 ? 'text-loss' : 'text-ink-300');
-      return `<tr class="hairline-b hover:bg-ink-900/50">
-        <td class="px-5 text-left text-ink-200">${r['代码'] || ''}</td>
-        <td class="text-left"><span class="text-ink-50">${r['名称'] || ''}</span>${r['管理人'] ? `<span class="text-ink-500 ml-2 text-[11px]">${r['管理人']}</span>` : ''}</td>
+      const c = (v) => v === null || v === undefined ? 'text-ink-500' : (v > 0 ? 'text-gain' : v < 0 ? 'text-loss' : 'text-ink-700');
+      return `<tr class="hairline-b hover:bg-ink-100">
+        <td class="px-5 text-left text-ink-800">${r['代码'] || ''}</td>
+        <td class="text-left"><span class="text-ink-950">${r['名称'] || ''}</span>${r['管理人'] ? `<span class="text-ink-500 ml-2 text-[11px]">${r['管理人']}</span>` : ''}</td>
         <td class="text-left"><span class="chip px-1.5 py-0.5 rounded-sm text-[11px]">${r['策略'] || ''}</span></td>
-        <td class="text-left text-ink-400 text-[11px]">${r['来源'] || ''}</td>
+        <td class="text-left text-ink-500 text-[11px]">${r['来源'] || ''}</td>
         <td class="text-right ${c(r['日回报'])}">${fmtPct(r['日回报'])}</td>
         <td class="text-right ${c(r['近一周'])}">${fmtPct(r['近一周'])}</td>
         <td class="text-right ${c(r['近一月'])}">${fmtPct(r['近一月'])}</td>
