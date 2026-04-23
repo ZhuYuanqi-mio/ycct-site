@@ -12,8 +12,8 @@
     text:    '#334155',
     dim:     '#64748B',
     muted:   '#94A3B8',
-    gain:    '#10B981',
-    loss:    '#EF4444',
+    gain:    '#EF4444',
+    loss:    '#10B981',
     palette: [
       '#0F172A', '#0284C7', '#7C3AED', '#DB2777',
       '#EA580C', '#CA8A04', '#059669', '#0891B2',
@@ -228,7 +228,7 @@
       visualMap: {
         min: -absMax, max: absMax,
         calculable: false, show: false,
-        inRange: { color: ['#B91C1C', '#FCA5A5', '#FEE2E2', '#F1F5F9', '#D1FAE5', '#6EE7B7', '#047857'] },
+        inRange: { color: ['#047857', '#6EE7B7', '#D1FAE5', '#F1F5F9', '#FEE2E2', '#FCA5A5', '#B91C1C'] },
       },
       series: [{
         name: '中位收益',
