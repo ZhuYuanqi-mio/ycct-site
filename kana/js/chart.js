@@ -705,6 +705,8 @@
     this.ctx = canvas.getContext('2d');
     this.opts = opts || {};
     this.hoverIdx = -1;
+    this._destroyed = false;
+    this._listeners = [];
     this._bindEvents();
   }
 
@@ -716,8 +718,13 @@
   IntradayChart.prototype._bindEvents = function () {
     var self = this;
     var canvas = this.canvas;
+    function on(type, fn) {
+      canvas.addEventListener(type, fn);
+      self._listeners.push({ type: type, fn: fn });
+    }
 
-    canvas.addEventListener('mousemove', function (e) {
+    on('mousemove', function (e) {
+      if (self._destroyed) return;
       if (!self.opts.ticks) return;
       var rect = canvas.getBoundingClientRect();
       var px = e.clientX - rect.left;
@@ -730,16 +737,19 @@
       if (idx !== self.hoverIdx) { self.hoverIdx = idx; self.draw(); }
     });
 
-    canvas.addEventListener('mouseleave', function () {
+    on('mouseleave', function () {
+      if (self._destroyed) return;
       if (self.hoverIdx !== -1) { self.hoverIdx = -1; self.draw(); }
     });
 
-    canvas.addEventListener('dblclick', function () {
+    on('dblclick', function () {
+      if (self._destroyed) return;
       if (self.hoverIdx < 0) return;
       if (self.opts.onMark) self.opts.onMark(self.hoverIdx);
     });
 
-    canvas.addEventListener('contextmenu', function (e) {
+    on('contextmenu', function (e) {
+      if (self._destroyed) return;
       e.preventDefault();
       if (self.hoverIdx < 0) return;
       var markers = self.opts.markers || [];
@@ -751,6 +761,21 @@
       }
       if (self.opts.onMark) self.opts.onMark(markers[closest]);
     });
+  };
+
+  // 解绑所有事件 + 清空画布。重新打开浮窗时调用，避免上一次的实例继续监听 mousemove 画旧数据
+  IntradayChart.prototype.destroy = function () {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    var canvas = this.canvas;
+    for (var i = 0; i < this._listeners.length; i++) {
+      canvas.removeEventListener(this._listeners[i].type, this._listeners[i].fn);
+    }
+    this._listeners = [];
+    if (this.ctx && canvas.width && canvas.height) {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
   };
 
   IntradayChart.prototype._idxAtX = function (px) {

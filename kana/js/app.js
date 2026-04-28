@@ -348,6 +348,12 @@
     state.intraday.markers = [];
     state.intraday.ticks = [];
 
+    // 立即销毁上一次的实例 + 清空 canvas，避免在 loading 期间鼠标 hover 时旧实例继续 redraw 出旧数据
+    if (state.intraday.chart && state.intraday.chart.destroy) {
+      state.intraday.chart.destroy();
+      state.intraday.chart = null;
+    }
+
     // 头部信息
     els.ipSymbol.textContent = (state.klineData.name || '') +
       ' (' + (state.klineData.code || '') + ')';
@@ -417,6 +423,9 @@
   function closeIntraday() {
     state.intraday.open = false;
     els.intradayPop.classList.remove('show');
+    if (state.intraday.chart && state.intraday.chart.destroy) {
+      state.intraday.chart.destroy();
+    }
     state.intraday.chart = null;
   }
 
@@ -484,6 +493,12 @@
   }
 
   function renderIntradayChart() {
+    // 销毁旧实例：避免上一次打开的 IntradayChart 残留事件继续在同一 canvas 上 redraw
+    if (state.intraday.chart && state.intraday.chart.destroy) {
+      state.intraday.chart.destroy();
+      state.intraday.chart = null;
+    }
+
     var dayIdx = state.intraday.dayIdx;
     // 昨收：取上一日的 close（首日则用今日开盘价兜底）
     var prevClose = null;
