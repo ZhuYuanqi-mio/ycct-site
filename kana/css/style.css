@@ -733,7 +733,21 @@ body {
   align-items: center;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  cursor: move;
+  user-select: none;
+  -webkit-user-select: none;
 }
+.ip-header.dragging { cursor: grabbing; }
+.ip-header > * { cursor: default; }
+.ip-header .ip-close { cursor: pointer; }
+/* 浮窗被拖动后用绝对定位 */
+.intraday-popout.dragged {
+  right: auto;
+  bottom: auto;
+  transform: none;
+  transition: none;
+}
+.intraday-popout.dragged.show { transform: none; }
 .ip-title {
   flex: 1;
   display: flex;

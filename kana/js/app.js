@@ -420,6 +420,61 @@
     state.intraday.chart = null;
   }
 
+  // ---------- 分时浮窗 header 拖拽 ----------
+  function bindIntradayDrag() {
+    var dragging = false;
+    var startX = 0, startY = 0;
+    var origLeft = 0, origTop = 0;
+    var pop = els.intradayPop;
+    var header = pop.querySelector('.ip-header');
+
+    header.addEventListener('mousedown', function (e) {
+      // 关闭按钮区域不触发拖拽
+      if (e.target.closest('.ip-close')) return;
+      if (e.button !== 0) return;
+      dragging = true;
+      header.classList.add('dragging');
+      startX = e.clientX;
+      startY = e.clientY;
+      var rect = pop.getBoundingClientRect();
+      origLeft = rect.left;
+      origTop = rect.top;
+      // 第一次拖动时切到绝对定位（脱离 right/bottom）
+      if (!pop.classList.contains('dragged')) {
+        pop.style.left = origLeft + 'px';
+        pop.style.top = origTop + 'px';
+        pop.classList.add('dragged');
+      }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      var w = pop.offsetWidth;
+      var h = pop.offsetHeight;
+      var nx = origLeft + dx;
+      var ny = origTop + dy;
+      // 限定在可视范围内（留 8px 余量）
+      var maxX = window.innerWidth - w - 8;
+      var maxY = window.innerHeight - h - 8;
+      if (nx < 8) nx = 8;
+      if (nx > maxX) nx = maxX;
+      if (ny < 8) ny = 8;
+      if (ny > maxY) ny = maxY;
+      pop.style.left = nx + 'px';
+      pop.style.top = ny + 'px';
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (dragging) {
+        dragging = false;
+        header.classList.remove('dragging');
+      }
+    });
+  }
+
   function showIpLoading() { els.ipLoading.classList.add('show'); }
   function hideIpLoading() { els.ipLoading.classList.remove('show'); }
   function showIpEmpty(msg) {
@@ -772,6 +827,9 @@
 
     // 分时浮窗关闭
     els.ipClose.addEventListener('click', closeIntraday);
+
+    // 分时浮窗 header 拖拽
+    bindIntradayDrag();
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && state.intraday.open) {

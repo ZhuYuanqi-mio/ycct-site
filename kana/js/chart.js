@@ -452,55 +452,109 @@
       ctx.fillText(volLabel, labelX, top + rowIdxVolume * rowH + fs);
     }
 
-    // ===== 各 marker 的列 =====
+    // ===== 计算每个 marker 列的 (x, ha) =====
     var closeThresh = (this._plotW / (this.viewEnd - this.viewStart + 1)) * 4;
+    var cols = [];
     for (var mi = 0; mi < markers.length; mi++) {
-      var idx = markers[mi];
-      var x = this._xOf(idx);
-
+      var idxC = markers[mi];
+      var xC = this._xOf(idxC);
       var ha = 'center';
       var prev = mi > 0 ? this._xOf(markers[mi - 1]) : -Infinity;
       var next = mi < markers.length - 1 ? this._xOf(markers[mi + 1]) : Infinity;
-      var prevClose = (x - prev) < closeThresh;
-      var nextClose = (next - x) < closeThresh;
-      if (prevClose && !nextClose) { ha = 'left'; x += 2; }
-      else if (nextClose && !prevClose) { ha = 'right'; x -= 2; }
-      ctx.textAlign = ha;
+      var prevClose = (xC - prev) < closeThresh;
+      var nextClose = (next - xC) < closeThresh;
+      if (prevClose && !nextClose) { ha = 'left'; xC += 2; }
+      else if (nextClose && !prevClose) { ha = 'right'; xC -= 2; }
+      cols.push({ idx: idxC, x: xC, ha: ha });
+    }
 
-      var d = data.dates[idx];
-      var dateStr = d.slice(5).replace('-', '');
+    // ===== 找到 hover 命中的 marker 列 =====
+    var hoverCol = -1;
+    if (this._isInView(this.hoverIdx)) {
+      var hx = this._xOf(this.hoverIdx);
+      var bestDist = Infinity, bestI = -1;
+      for (var c = 0; c < cols.length; c++) {
+        var d = Math.abs(this._xOf(cols[c].idx) - hx);
+        if (d < bestDist) { bestDist = d; bestI = c; }
+      }
+      var th = Math.max(30, this._plotW / Math.max(1, this.viewEnd - this.viewStart + 1) * 4);
+      if (bestI >= 0 && bestDist <= th) hoverCol = bestI;
+    }
+
+    var self = this;
+    function drawCol(ci) {
+      var col = cols[ci];
+      var idx = col.idx;
+      var dStr = data.dates[idx].slice(5).replace('-', '');
       var price = data.close[idx];
-      var amt = this._hasAmount ? data.amount[idx] : null;
-      var vol = this._hasVolume ? data.volume[idx] : null;
-      var change = (this._hasChange && data.change) ? data.change[idx] : null;
+      var amt = self._hasAmount ? data.amount[idx] : null;
+      var vol = self._hasVolume ? data.volume[idx] : null;
+      var change = (self._hasChange && data.change) ? data.change[idx] : null;
+      ctx.textAlign = col.ha;
 
-      // 行 日期 (橙色)
       ctx.font = '600 ' + (fs - 2) + 'px -apple-system, "PingFang SC", sans-serif';
       ctx.fillStyle = COLOR_MARKER;
-      ctx.fillText(dateStr, x, top + rowIdxDate * rowH + fs);
+      ctx.fillText(dStr, col.x, top + rowIdxDate * rowH + fs);
 
-      // 行 涨跌幅 (红涨/绿跌)
       if (rowIdxChange >= 0) {
         ctx.font = '600 ' + (fs - 1) + 'px -apple-system, sans-serif';
         ctx.fillStyle = pctColor(change);
-        ctx.fillText(fmtPct(change), x, top + rowIdxChange * rowH + fs);
+        ctx.fillText(fmtPct(change), col.x, top + rowIdxChange * rowH + fs);
       }
 
-      // 行 价格
       ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
       ctx.fillStyle = COLOR_TEXT;
-      ctx.fillText(fmtNum(price, dpP), x, top + rowIdxPrice * rowH + fs);
+      ctx.fillText(fmtNum(price, dpP), col.x, top + rowIdxPrice * rowH + fs);
 
-      // 行 成交额（亿）
       if (rowIdxAmount >= 0) {
         var amtYi = amt == null ? null : amt / 1e8;
-        ctx.fillText(fmtNum(amtYi, dpA), x, top + rowIdxAmount * rowH + fs);
+        ctx.fillText(fmtNum(amtYi, dpA), col.x, top + rowIdxAmount * rowH + fs);
       }
-      // 行 成交量
       if (rowIdxVolume >= 0) {
         var volC = vol == null ? null : vol / volUnit;
-        ctx.fillText(fmtNum(volC, dpV), x, top + rowIdxVolume * rowH + fs);
+        ctx.fillText(fmtNum(volC, dpV), col.x, top + rowIdxVolume * rowH + fs);
       }
+    }
+
+    // 阶段 1：先画所有 marker 列
+    for (var i = 0; i < cols.length; i++) drawCol(i);
+
+    // 阶段 2：hover 高亮 → 白底矩形覆盖相邻 + 重画该列 + 橙色边框
+    if (hoverCol >= 0) {
+      var hCol = cols[hoverCol];
+      var hIdx = hCol.idx;
+      var dStrH = data.dates[hIdx].slice(5).replace('-', '');
+      var amtH = this._hasAmount ? data.amount[hIdx] : null;
+      var volH = this._hasVolume ? data.volume[hIdx] : null;
+      var chgH = (this._hasChange && data.change) ? data.change[hIdx] : null;
+      ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
+      var widths = [
+        ctx.measureText(dStrH).width,
+        ctx.measureText(fmtNum(data.close[hIdx], dpP)).width,
+        ctx.measureText(fmtPct(chgH)).width,
+        amtH != null ? ctx.measureText(fmtNum(amtH / 1e8, dpA)).width : 0,
+        volH != null ? ctx.measureText(fmtNum(volH / volUnit, dpV)).width : 0
+      ];
+      var maxW = 0;
+      for (var w = 0; w < widths.length; w++) if (widths[w] > maxW) maxW = widths[w];
+      var totalRows = 1 + (rowIdxChange >= 0 ? 1 : 0) + 1 +
+                      (rowIdxAmount >= 0 ? 1 : 0) + (rowIdxVolume >= 0 ? 1 : 0);
+      var pad = 8;
+      var boxW = maxW + pad * 2;
+      var boxH = totalRows * rowH + 6;
+      var boxX;
+      if (hCol.ha === 'left')       boxX = hCol.x - pad;
+      else if (hCol.ha === 'right') boxX = hCol.x - boxW + pad;
+      else                          boxX = hCol.x - boxW / 2;
+      var boxY = top - 2;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1);
+
+      drawCol(hoverCol);
     }
   };
 
@@ -909,9 +963,11 @@
     var rowH = this._rowH;
 
     var rowMin = 0, rowPrice = 1, rowChg = 2, rowVol = 3, rowAmt = 4;
+    var totalRows = 5;
     var top = this._sec1Top;
     var labelX = this._padLeft - 8;
 
+    // 左侧标签列
     ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'right';
     ctx.fillStyle = COLOR_TEXT_3;
@@ -922,13 +978,13 @@
     ctx.fillText('交易量', labelX, top + rowVol * rowH + fs);
     ctx.fillText('交易额', labelX, top + rowAmt * rowH + fs);
 
-    // 各 marker 列
+    // 计算每个 marker 列的 (x, ha)
     var closeThresh = (this._plotW / ticks.length) * 4;
+    var cols = [];
     for (var mi = 0; mi < markers.length; mi++) {
       var idx = markers[mi];
       if (idx < 0 || idx >= ticks.length) continue;
       var x = this._xOf(idx);
-
       var ha = 'center';
       var prev = mi > 0 ? this._xOf(markers[mi - 1]) : -Infinity;
       var next = mi < markers.length - 1 ? this._xOf(markers[mi + 1]) : Infinity;
@@ -936,33 +992,85 @@
       var nextClose = (next - x) < closeThresh;
       if (prevClose && !nextClose) { ha = 'left'; x += 2; }
       else if (nextClose && !prevClose) { ha = 'right'; x -= 2; }
-      ctx.textAlign = ha;
+      cols.push({ idx: idx, x: x, ha: ha });
+    }
 
-      var t = ticks[idx];
-      var pct = this._pctAt(idx);
+    // 找出 hover 命中的 marker（鼠标在 chart 区域且离最近的 marker 不超过 1.2 倍 tick 宽）
+    var hoverCol = -1;
+    if (this.hoverIdx >= 0) {
+      var hoverX = this._xOf(this.hoverIdx);
+      var bestDist = Infinity, bestI = -1;
+      for (var c = 0; c < cols.length; c++) {
+        var d = Math.abs(this._xOf(cols[c].idx) - hoverX);
+        if (d < bestDist) { bestDist = d; bestI = c; }
+      }
+      // 阈值：marker 数量越多越宽松，至少 30px
+      var th = Math.max(30, this._plotW / Math.max(1, ticks.length) * 4);
+      if (bestI >= 0 && bestDist <= th) hoverCol = bestI;
+    }
 
-      // 分钟 (橙色)
+    var self = this;
+    function drawCol(ci) {
+      var col = cols[ci];
+      var t = ticks[col.idx];
+      var pct = self._pctAt(col.idx);
+      ctx.textAlign = col.ha;
+
       ctx.font = '600 ' + (fs - 1) + 'px -apple-system, sans-serif';
       ctx.fillStyle = COLOR_MARKER;
-      ctx.fillText(t.t, x, top + rowMin * rowH + fs);
+      ctx.fillText(t.t, col.x, top + rowMin * rowH + fs);
 
-      // 价格
       ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
       ctx.fillStyle = COLOR_TEXT;
-      ctx.fillText(t.p != null ? t.p.toFixed(2) : '-', x, top + rowPrice * rowH + fs);
+      ctx.fillText(t.p != null ? t.p.toFixed(2) : '-', col.x, top + rowPrice * rowH + fs);
 
-      // 涨跌幅 (红绿)
       ctx.font = '600 ' + (fs - 1) + 'px -apple-system, sans-serif';
       ctx.fillStyle = pctColor(pct);
-      ctx.fillText(fmtPct(pct), x, top + rowChg * rowH + fs);
+      ctx.fillText(fmtPct(pct), col.x, top + rowChg * rowH + fs);
 
-      // 交易量
       ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
       ctx.fillStyle = COLOR_TEXT;
-      ctx.fillText(t.v != null ? formatCount(t.v) : '-', x, top + rowVol * rowH + fs);
+      ctx.fillText(t.v != null ? formatCount(t.v) : '-', col.x, top + rowVol * rowH + fs);
+      ctx.fillText(t.a != null ? formatCount(t.a) : '-', col.x, top + rowAmt * rowH + fs);
+    }
 
-      // 交易额
-      ctx.fillText(t.a != null ? formatCount(t.a) : '-', x, top + rowAmt * rowH + fs);
+    // ===== 阶段 1：先画所有 marker 列 =====
+    for (var i = 0; i < cols.length; i++) drawCol(i);
+
+    // ===== 阶段 2：hover 高亮 —— 白底矩形覆盖相邻列 + 重画该列 + 边框 =====
+    if (hoverCol >= 0) {
+      var hCol = cols[hoverCol];
+      // 估算这一列各行最宽的字串，用于决定白底宽度
+      ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
+      var t = ticks[hCol.idx];
+      var pct = this._pctAt(hCol.idx);
+      var widths = [
+        ctx.measureText(t.t).width,
+        ctx.measureText(t.p != null ? t.p.toFixed(2) : '-').width,
+        ctx.measureText(fmtPct(pct)).width,
+        ctx.measureText(t.v != null ? formatCount(t.v) : '-').width,
+        ctx.measureText(t.a != null ? formatCount(t.a) : '-').width
+      ];
+      var maxW = 0;
+      for (var w = 0; w < widths.length; w++) if (widths[w] > maxW) maxW = widths[w];
+      var pad = 8;
+      var boxW = maxW + pad * 2;
+      var boxH = totalRows * rowH + 6;
+      var boxX;
+      if (hCol.ha === 'left')       boxX = hCol.x - pad;
+      else if (hCol.ha === 'right') boxX = hCol.x - boxW + pad;
+      else                          boxX = hCol.x - boxW / 2;
+      var boxY = top - 2;
+
+      // 画底色（不透明白）+ 浅描边
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1);
+
+      // 在白底上重画该列文字（颜色不变，已足够清晰）
+      drawCol(hoverCol);
     }
   };
 
