@@ -85,14 +85,6 @@
 
     <!-- 工具栏 -->
     <div class="toolbar">
-      <button class="btn btn-primary" id="btnImport">
-        <svg class="ico"><use href="#icon-import"/></svg>
-        导入分时 Excel
-      </button>
-      <input type="file" id="fileImport" class="hidden-file" accept=".xlsx,.xls,.xlsm">
-
-      <span class="sep"></span>
-
       <label class="switch" id="annotSwitch" title="开 = 双击日K打/取消标注；关 = 双击日K弹出该日分时图">
         <input type="checkbox" id="annotMode" checked>
         <span class="switch-track"><span class="switch-thumb"></span></span>
@@ -231,12 +223,8 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- SheetJS 用于解析 Excel -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <script src="config.js"></script>
 <script src="js/zion.js"></script>
-<script src="js/excel.js"></script>
 <script src="js/chart.js"></script>
 <script src="js/app.js"></script>
 </body>

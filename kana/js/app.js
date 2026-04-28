@@ -169,7 +169,7 @@
       if (!rows || rows.length === 0) {
         state.klineData = null;
         renderChart();
-        showStatus('该股票暂无 K 线数据，请使用「导入分时 Excel」上传数据');
+        showStatus('该股票暂无 K 线数据，请在 Zion 后台向 ycct_kline 表批量上传 CSV');
         return;
       }
       // 排序：按 date 升序
@@ -217,7 +217,7 @@
       wrap.innerHTML = '<div class="empty-chart">' +
         (state.activeStockId == null ?
           '请在左侧选择一只股票<br><span style="font-size:12px;color:var(--text-4)">没有股票？点击左上角「新建」</span>' :
-          '该股票还没有 K 线数据<br><span style="font-size:12px;color:var(--text-4)">点击工具栏「导入分时 Excel」上传</span>') +
+          '该股票还没有 K 线数据<br><span style="font-size:12px;color:var(--text-4)">请在 Zion 后台向 <code>ycct_kline</code> 表上传 CSV</span>') +
         '</div>';
       els.intervalSec.style.display = 'none';
       return;
@@ -595,65 +595,6 @@
     });
   }
 
-  // ============== 导入 Excel ==============
-  function onImportFile(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    if (!state.activeStockId) {
-      toast('请先在左侧选择一只股票');
-      e.target.value = '';
-      return;
-    }
-    showLoading('正在解析 Excel ...');
-    var reader = new FileReader();
-    reader.onload = function (ev) {
-      try {
-        var ab = ev.target.result;
-        var result = YcctExcel.parseAndAggregate(ab);
-        if (!result.days || result.days.length === 0) {
-          hideLoading();
-          toast('Excel 中没有解析到任何有效数据');
-          e.target.value = '';
-          return;
-        }
-        var msg = '解析到 ' + result.days.length + ' 个交易日（' +
-          result.days[0].date + ' ~ ' + result.days[result.days.length - 1].date + '）。' +
-          (result.stockName ? '\n表头股票名：' + result.stockName : '') +
-          '\n\n确认导入到当前股票？';
-        if (!confirm(msg)) {
-          hideLoading();
-          e.target.value = '';
-          return;
-        }
-        var batchSize = 15;
-        var totalBatches = Math.ceil(result.days.length / batchSize);
-        showLoading('上传中 0/' + result.days.length + '（共 ' + totalBatches + ' 批）...');
-        Zion.importKlineBatched(state.activeStockId, result.days, {
-          batchSize: batchSize,
-          onProgress: function (done, total, batchIdx, batchTotal) {
-            showLoading('上传中 ' + done + '/' + total +
-              '（第 ' + batchIdx + '/' + batchTotal + ' 批）...');
-          }
-        }).then(function (r) {
-          hideLoading();
-          toast('导入完成：新增 ' + r.inserted + ' 天，更新 ' + r.updated +
-            ' 天（' + r.batches + ' 批）');
-          switchStock(state.activeStockId);
-        }).catch(function (err) {
-          hideLoading();
-          toast('上传失败: ' + err.message);
-          console.error(err);
-        });
-      } catch (err) {
-        hideLoading();
-        toast('解析失败: ' + err.message);
-        console.error(err);
-      }
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
   // ============== Loading & Status ==============
   function showLoading(msg) {
     var ov = els.loadingOverlay;
@@ -676,9 +617,6 @@
     els.intervalSec = document.getElementById('intervalSec');
     els.markerTags = document.getElementById('markerTags');
     els.status = document.getElementById('status');
-
-    els.btnImport = document.getElementById('btnImport');
-    els.fileImport = document.getElementById('fileImport');
 
     els.btnClear = document.getElementById('btnClear');
     els.btnSelectAll = document.getElementById('btnSelectAll');
@@ -734,9 +672,6 @@
       }
     });
 
-    els.btnImport.addEventListener('click', function () { els.fileImport.click(); });
-    els.fileImport.addEventListener('change', onImportFile);
-
     els.btnClear.addEventListener('click', clearMarkers);
     els.btnSelectAll.addEventListener('click', selectAllMarkers);
     els.btnSave.addEventListener('click', saveMarkers);
@@ -784,7 +719,7 @@
   function checkConfig() {
     var cfg = window.YCCT_CONFIG && window.YCCT_CONFIG.zion;
     if (!cfg) return false;
-    var keys = ['createStock', 'listStocks', 'deleteStock', 'importKline',
+    var keys = ['createStock', 'listStocks', 'deleteStock',
                 'listKline', 'saveMarkers', 'getMarkers'];
     for (var i = 0; i < keys.length; i++) {
       if (!cfg[keys[i]]) return false;

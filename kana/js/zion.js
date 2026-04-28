@@ -62,49 +62,6 @@
   }
 
   /**
-   * 批量导入日 K（带 intraday_json）—— 单次调用，单批最大 60s
-   * @param {number} stockId
-   * @param {Array<object>} klineRows
-   * @return {Promise<{inserted:number, updated:number}>}
-   */
-  async function importKline(stockId, klineRows) {
-    var r = await callWebhook(URLS.importKline, {
-      stock_id: stockId,
-      kline_json: JSON.stringify(klineRows)
-    }, 60000);
-    return {
-      inserted: parseInt(r.inserted || 0),
-      updated: parseInt(r.updated || 0)
-    };
-  }
-
-  /**
-   * 分批导入日 K（推荐用法）
-   * 把 N 天数据按 batchSize 切片串行上传，避免单次请求体过大或后端处理超时。
-   * @param {number} stockId
-   * @param {Array<object>} klineRows
-   * @param {object} [opts] { batchSize=15, onProgress(done, total, batchIdx, batchTotal) }
-   * @return {Promise<{inserted:number, updated:number, batches:number}>}
-   */
-  async function importKlineBatched(stockId, klineRows, opts) {
-    opts = opts || {};
-    var batchSize = opts.batchSize || 15;
-    var rows = klineRows || [];
-    var total = rows.length;
-    var batches = Math.ceil(total / batchSize);
-    var inserted = 0, updated = 0;
-    for (var i = 0; i < batches; i++) {
-      var slice = rows.slice(i * batchSize, (i + 1) * batchSize);
-      if (opts.onProgress) opts.onProgress(i * batchSize, total, i + 1, batches);
-      var r = await importKline(stockId, slice);
-      inserted += r.inserted;
-      updated += r.updated;
-    }
-    if (opts.onProgress) opts.onProgress(total, total, batches, batches);
-    return { inserted: inserted, updated: updated, batches: batches };
-  }
-
-  /**
    * 拉取某只股票的全部日 K（**不**含 intraday_json，列表轻量）
    * @param {number} stockId
    * @return {Promise<Array<object>>}
@@ -180,8 +137,6 @@
     createStock: createStock,
     listStocks: listStocks,
     deleteStock: deleteStock,
-    importKline: importKline,
-    importKlineBatched: importKlineBatched,
     listKline: listKline,
     getIntraday: getIntraday,
     saveMarkers: saveMarkers,
