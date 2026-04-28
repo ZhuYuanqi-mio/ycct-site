@@ -14,10 +14,11 @@
    * @param {object} body 入参对象
    * @return {Promise<object>} 出参对象
    */
-  async function callWebhook(url, body) {
+  async function callWebhook(url, body, timeoutMs) {
     if (!url) throw new Error('Zion webhook URL 未配置（请编辑 config.js）');
     var ctrl = new AbortController();
-    var t = setTimeout(function () { ctrl.abort(); }, TIMEOUT);
+    var to = timeoutMs || TIMEOUT;
+    var t = setTimeout(function () { ctrl.abort(); }, to);
     try {
       var res = await fetch(url, {
         method: 'POST',
@@ -27,6 +28,12 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return await res.json();
+    } catch (err) {
+      // 把 abort 错误改写成更友好的提示
+      if (err && err.name === 'AbortError') {
+        throw new Error('请求超时（' + (to / 1000) + 's），网络或后端慢，请稍后重试或减少单批数据量');
+      }
+      throw err;
     } finally {
       clearTimeout(t);
     }
@@ -55,20 +62,46 @@
   }
 
   /**
-   * 批量导入日 K（带 intraday_json）
+   * 批量导入日 K（带 intraday_json）—— 单次调用，单批最大 60s
    * @param {number} stockId
-   * @param {Array<object>} klineRows  [{date, open, high, low, close, volume, amount, intraday_json}]
+   * @param {Array<object>} klineRows
    * @return {Promise<{inserted:number, updated:number}>}
    */
   async function importKline(stockId, klineRows) {
     var r = await callWebhook(URLS.importKline, {
       stock_id: stockId,
       kline_json: JSON.stringify(klineRows)
-    });
+    }, 60000);
     return {
       inserted: parseInt(r.inserted || 0),
       updated: parseInt(r.updated || 0)
     };
+  }
+
+  /**
+   * 分批导入日 K（推荐用法）
+   * 把 N 天数据按 batchSize 切片串行上传，避免单次请求体过大或后端处理超时。
+   * @param {number} stockId
+   * @param {Array<object>} klineRows
+   * @param {object} [opts] { batchSize=15, onProgress(done, total, batchIdx, batchTotal) }
+   * @return {Promise<{inserted:number, updated:number, batches:number}>}
+   */
+  async function importKlineBatched(stockId, klineRows, opts) {
+    opts = opts || {};
+    var batchSize = opts.batchSize || 15;
+    var rows = klineRows || [];
+    var total = rows.length;
+    var batches = Math.ceil(total / batchSize);
+    var inserted = 0, updated = 0;
+    for (var i = 0; i < batches; i++) {
+      var slice = rows.slice(i * batchSize, (i + 1) * batchSize);
+      if (opts.onProgress) opts.onProgress(i * batchSize, total, i + 1, batches);
+      var r = await importKline(stockId, slice);
+      inserted += r.inserted;
+      updated += r.updated;
+    }
+    if (opts.onProgress) opts.onProgress(total, total, batches, batches);
+    return { inserted: inserted, updated: updated, batches: batches };
   }
 
   /**
@@ -148,6 +181,7 @@
     listStocks: listStocks,
     deleteStock: deleteStock,
     importKline: importKline,
+    importKlineBatched: importKlineBatched,
     listKline: listKline,
     getIntraday: getIntraday,
     saveMarkers: saveMarkers,

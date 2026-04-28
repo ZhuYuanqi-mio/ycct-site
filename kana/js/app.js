@@ -625,11 +625,19 @@
           e.target.value = '';
           return;
         }
-        showLoading('正在上传到 Zion（约需要 ' + Math.ceil(result.days.length * 0.3) + ' 秒）...');
-        Zion.importKline(state.activeStockId, result.days).then(function (r) {
+        var batchSize = 15;
+        var totalBatches = Math.ceil(result.days.length / batchSize);
+        showLoading('上传中 0/' + result.days.length + '（共 ' + totalBatches + ' 批）...');
+        Zion.importKlineBatched(state.activeStockId, result.days, {
+          batchSize: batchSize,
+          onProgress: function (done, total, batchIdx, batchTotal) {
+            showLoading('上传中 ' + done + '/' + total +
+              '（第 ' + batchIdx + '/' + batchTotal + ' 批）...');
+          }
+        }).then(function (r) {
           hideLoading();
-          toast('导入完成：新增 ' + r.inserted + ' 天，更新 ' + r.updated + ' 天');
-          // 重新加载
+          toast('导入完成：新增 ' + r.inserted + ' 天，更新 ' + r.updated +
+            ' 天（' + r.batches + ' 批）');
           switchStock(state.activeStockId);
         }).catch(function (err) {
           hideLoading();
