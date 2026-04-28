@@ -67,7 +67,8 @@
    * @return {Promise<Array<object>>}
    */
   async function listKline(stockId) {
-    var r = await callWebhook(URLS.listKline, { stock_id: stockId });
+    // 数据量大时 Zion 可能首次冷启动较慢，给 60s 超时
+    var r = await callWebhook(URLS.listKline, { stock_id: stockId }, 60000);
     var raw = r.kline_data;
     if (!raw) return [];
     var arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -80,7 +81,8 @@
    * @return {Promise<Array<object>>} [{t,p,v,a,c}, ...]
    */
   async function getIntraday(klineId) {
-    var r = await callWebhook(URLS.getIntraday, { kline_id: klineId });
+    // 单天分时 ~17KB，但 Zion 偶尔冷启动慢，给 60s
+    var r = await callWebhook(URLS.getIntraday, { kline_id: klineId }, 60000);
     var raw = r.intraday_json;
     if (!raw) return [];
     var arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
