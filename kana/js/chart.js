@@ -40,13 +40,16 @@
     this.hoverIdx = -1;
 
     var n = (opts.data && opts.data.dates) ? opts.data.dates.length : 0;
-    this.viewStart = 0;
+    // 初始视窗：默认显示最后 initialViewSize 天（如未提供则全部）
+    var defaultSize = opts.initialViewSize ? Math.min(opts.initialViewSize, n) : n;
     this.viewEnd = Math.max(0, n - 1);
+    this.viewStart = Math.max(0, this.viewEnd - defaultSize + 1);
 
-    this._isDragging = false;
-    this._dragMoved = false;
-    this._dragStartX = 0;
-    this._dragStartViewStart = 0;
+    // 允许外部初始指定 viewStart / viewEnd（用于切股票时保留偏好）
+    if (typeof opts.initialViewStart === 'number' && typeof opts.initialViewEnd === 'number') {
+      this.viewStart = Math.max(0, Math.min(n - 1, opts.initialViewStart));
+      this.viewEnd = Math.max(this.viewStart, Math.min(n - 1, opts.initialViewEnd));
+    }
 
     this._bindEvents();
   }
@@ -56,18 +59,61 @@
     Object.assign(this.opts, patch);
     if (dataChanged) {
       var n = this.opts.data.dates.length;
-      this.viewStart = 0;
+      var size = this.opts.initialViewSize ? Math.min(this.opts.initialViewSize, n) : n;
       this.viewEnd = Math.max(0, n - 1);
+      this.viewStart = Math.max(0, this.viewEnd - size + 1);
     }
     this.draw();
   };
 
-  YcctChart.prototype.resetZoom = function () {
+  // 缩放：增大视窗数量 delta 天（delta 可负为缩小）。锚点固定在视窗右端。
+  YcctChart.prototype.zoomBy = function (delta) {
+    if (!this.opts.data) return;
+    var n = this.opts.data.dates.length;
+    var size = this.viewEnd - this.viewStart + 1;
+    var newSize = Math.max(8, Math.min(n, size + delta));
+    if (newSize === size) return;
+    // 以右端为锚扩展/收缩
+    this.viewStart = Math.max(0, this.viewEnd - newSize + 1);
+    if (this.viewStart === 0) this.viewEnd = Math.min(n - 1, this.viewStart + newSize - 1);
+    this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
+  };
+
+  // 平移：视窗整体向右移动 delta 天（delta 可负，向左为更早）
+  YcctChart.prototype.panBy = function (delta) {
+    if (!this.opts.data) return;
+    var n = this.opts.data.dates.length;
+    var size = this.viewEnd - this.viewStart + 1;
+    var newStart = Math.max(0, Math.min(n - size, this.viewStart + delta));
+    if (newStart === this.viewStart) return;
+    this.viewStart = newStart;
+    this.viewEnd = newStart + size - 1;
+    this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
+  };
+
+  // 设置视窗（绝对位置）
+  YcctChart.prototype.setView = function (start, end) {
+    if (!this.opts.data) return;
+    var n = this.opts.data.dates.length;
+    this.viewStart = Math.max(0, Math.min(n - 1, start));
+    this.viewEnd = Math.max(this.viewStart, Math.min(n - 1, end));
+    this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
+  };
+
+  // 全部：显示所有数据
+  YcctChart.prototype.viewAll = function () {
     if (!this.opts.data) return;
     this.viewStart = 0;
     this.viewEnd = Math.max(0, this.opts.data.dates.length - 1);
     this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
   };
+
+  // 兼容旧名
+  YcctChart.prototype.resetZoom = function () { this.viewAll(); };
 
   YcctChart.prototype.getViewInfo = function () {
     if (!this.opts.data) return null;
@@ -84,54 +130,7 @@
     var self = this;
     var canvas = this.canvas;
 
-    // ---- 滚轮缩放 ----
-    canvas.addEventListener('wheel', function (e) {
-      if (!self.opts.data) return;
-      e.preventDefault();
-      var rect = canvas.getBoundingClientRect();
-      var px = e.clientX - rect.left;
-      var anchorIdx = self._idxAtX(px);
-      if (anchorIdx < self.viewStart) anchorIdx = self.viewStart;
-      if (anchorIdx > self.viewEnd) anchorIdx = self.viewEnd;
-
-      var n = self.opts.data.dates.length;
-      var viewN = self.viewEnd - self.viewStart + 1;
-      var factor = e.deltaY > 0 ? 1.25 : 0.8;  // 向下=缩小（更多天），向上=放大（更少天）
-      var newViewN = Math.round(viewN * factor);
-      newViewN = Math.max(8, Math.min(n, newViewN));
-
-      if (newViewN === viewN) return;
-
-      // 保持鼠标所在位置的数据点不变
-      var ratio = (anchorIdx - self.viewStart) / Math.max(1, viewN - 1);
-      var newStart = Math.round(anchorIdx - ratio * (newViewN - 1));
-      newStart = Math.max(0, Math.min(n - newViewN, newStart));
-      self.viewStart = newStart;
-      self.viewEnd = newStart + newViewN - 1;
-      self.draw();
-      if (self.opts.onView) self.opts.onView(self.getViewInfo());
-    }, { passive: false });
-
-    // ---- 拖拽平移 ----
-    canvas.addEventListener('mousedown', function (e) {
-      if (e.button !== 0) return;
-      if (!self.opts.data) return;
-      self._isDragging = true;
-      self._dragMoved = false;
-      self._dragStartX = e.clientX;
-      self._dragStartViewStart = self.viewStart;
-      canvas.style.cursor = 'grabbing';
-    });
-
-    var endDrag = function () {
-      if (self._isDragging) {
-        self._isDragging = false;
-        canvas.style.cursor = '';
-      }
-    };
-    document.addEventListener('mouseup', endDrag);
     canvas.addEventListener('mouseleave', function () {
-      endDrag();
       self.hoverIdx = -1;
       self.draw();
       if (self.opts.onHover) self.opts.onHover(-1);
@@ -142,23 +141,6 @@
       var rect = canvas.getBoundingClientRect();
       var px = e.clientX - rect.left;
       var py = e.clientY - rect.top;
-
-      if (self._isDragging) {
-        var dx = e.clientX - self._dragStartX;
-        if (Math.abs(dx) > 3) self._dragMoved = true;
-        var n = self.opts.data.dates.length;
-        var viewN = self.viewEnd - self.viewStart + 1;
-        var dIdx = -Math.round(dx * viewN / self._plotW);  // 拖右 = 视口向左
-        var newStart = self._dragStartViewStart + dIdx;
-        newStart = Math.max(0, Math.min(n - viewN, newStart));
-        if (newStart !== self.viewStart) {
-          self.viewStart = newStart;
-          self.viewEnd = newStart + viewN - 1;
-          self.draw();
-          if (self.opts.onView) self.opts.onView(self.getViewInfo());
-        }
-        return;
-      }
 
       // 悬停检测（仅在 K 线区域内）
       if (py < self._chartTop || py > self._chartBottom) {
@@ -178,8 +160,7 @@
     });
 
     // ---- 双击插入/删除标注 ----
-    canvas.addEventListener('dblclick', function (e) {
-      if (self._dragMoved) return;
+    canvas.addEventListener('dblclick', function () {
       if (self.hoverIdx < 0) return;
       if (self.opts.onDblclick) self.opts.onDblclick(self.hoverIdx);
     });

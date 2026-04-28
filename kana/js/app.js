@@ -25,7 +25,11 @@
       chart: null
     },
     // 缓存：klineId -> ticks，避免反复请求
-    intradayCache: {}
+    intradayCache: {},
+
+    // 视窗偏好
+    defaultViewSize: 20,             // 默认显示最近 20 个交易日
+    viewByStock: {}                  // {stockId: {start, end}} 每只股票各自记忆
   };
 
   var els = {};
@@ -227,11 +231,33 @@
       '<div class="chart-hint">' +
         '<span id="viewInfo"></span>' +
         '<span class="dim-sep">·</span>' +
-        '滚轮缩放 · 拖动平移 · 双击插入标注 · 右键删除最近的标注' +
+        '双击插入标注 · 右键删除最近的标注' +
+      '</div>' +
+      '<div class="pager">' +
+        '<button class="pager-btn" id="btnPanLeft" title="向左平移 5 天（看更早）">' +
+          '<svg class="ico"><use href="#icon-arrow-left"/></svg>5 天' +
+        '</button>' +
+        '<button class="pager-btn" id="btnPanLeft1" title="向左 1 天">' +
+          '<svg class="ico"><use href="#icon-arrow-left"/></svg>1 天' +
+        '</button>' +
+        '<span class="pager-info" id="pagerInfo"></span>' +
+        '<button class="pager-btn" id="btnPanRight1" title="向右 1 天">' +
+          '1 天<svg class="ico"><use href="#icon-arrow-right"/></svg>' +
+        '</button>' +
+        '<button class="pager-btn" id="btnPanRight" title="向右平移 5 天（看更晚）">' +
+          '5 天<svg class="ico"><use href="#icon-arrow-right"/></svg>' +
+        '</button>' +
       '</div>';
     var canvas = document.getElementById('cv');
     var dpOpts = readDp();
-    state.chart = new YcctChart(canvas, {
+    // 初始视窗：每只股票分别记忆，否则默认显示最近 20 天
+    var initOpts = { initialViewSize: state.defaultViewSize };
+    var saved = state.viewByStock[state.activeStockId];
+    if (saved && saved.start != null && saved.end != null) {
+      initOpts.initialViewStart = saved.start;
+      initOpts.initialViewEnd = saved.end;
+    }
+    state.chart = new YcctChart(canvas, Object.assign({
       data: state.klineData,
       markers: state.markers,
       showAverages: els.showAvg.checked,
@@ -242,19 +268,56 @@
       fontSize: dpOpts.fontSize,
       onDblclick: onDayChartDblclick,
       onView: updateViewInfo
-    });
+    }, initOpts));
     state.chart.draw();
     updateViewInfo(state.chart.getViewInfo());
+    bindPagerHandlers();
     renderIntervalTable();
   }
 
+  function bindPagerHandlers() {
+    var bL5 = document.getElementById('btnPanLeft');
+    var bL1 = document.getElementById('btnPanLeft1');
+    var bR1 = document.getElementById('btnPanRight1');
+    var bR5 = document.getElementById('btnPanRight');
+    if (bL5) bL5.addEventListener('click', function () { state.chart && state.chart.panBy(-5); });
+    if (bL1) bL1.addEventListener('click', function () { state.chart && state.chart.panBy(-1); });
+    if (bR1) bR1.addEventListener('click', function () { state.chart && state.chart.panBy(1); });
+    if (bR5) bR5.addEventListener('click', function () { state.chart && state.chart.panBy(5); });
+  }
+
   function updateViewInfo(info) {
-    var el = document.getElementById('viewInfo');
-    if (!el || !info) return;
+    if (!info) return;
+    var elH = document.getElementById('viewInfo');
     var visN = info.end - info.start + 1;
-    el.textContent = '显示 ' + (info.startDate || '').slice(5) +
-      ' ~ ' + (info.endDate || '').slice(5) +
-      '（' + visN + ' / ' + info.total + ' 天）';
+    var rangeText = (info.startDate || '').slice(5) + ' ~ ' + (info.endDate || '').slice(5);
+    if (elH) elH.textContent = '显示 ' + rangeText + '（' + visN + ' / ' + info.total + ' 天）';
+
+    // 分页栏中段
+    var pi = document.getElementById('pagerInfo');
+    if (pi) pi.innerHTML = '<b>' + rangeText + '</b> · ' + visN + ' / ' + info.total + ' 天';
+
+    // 边界禁用按钮
+    var bL5 = document.getElementById('btnPanLeft');
+    var bL1 = document.getElementById('btnPanLeft1');
+    var bR1 = document.getElementById('btnPanRight1');
+    var bR5 = document.getElementById('btnPanRight');
+    if (bL5) bL5.disabled = info.start === 0;
+    if (bL1) bL1.disabled = info.start === 0;
+    if (bR1) bR1.disabled = info.end === info.total - 1;
+    if (bR5) bR5.disabled = info.end === info.total - 1;
+
+    // 工具栏天数显示
+    if (els.viewSizeVal) els.viewSizeVal.textContent = visN;
+
+    // 同步 +/- 按钮可用性
+    if (els.btnZoomIn) els.btnZoomIn.disabled = visN <= 8;
+    if (els.btnZoomOut) els.btnZoomOut.disabled = visN >= info.total;
+
+    // 缓存当前股票的视窗偏好（按股票分别记忆）
+    if (state.activeStockId != null) {
+      state.viewByStock[state.activeStockId] = { start: info.start, end: info.end };
+    }
   }
 
   function onDayChartDblclick(idx) {
@@ -621,7 +684,10 @@
     els.btnClear = document.getElementById('btnClear');
     els.btnSelectAll = document.getElementById('btnSelectAll');
     els.btnSave = document.getElementById('btnSave');
-    els.btnResetZoom = document.getElementById('btnResetZoom');
+    els.btnViewAll = document.getElementById('btnViewAll');
+    els.btnZoomIn = document.getElementById('btnZoomIn');     // -（缩小窗口，少看 5 天）
+    els.btnZoomOut = document.getElementById('btnZoomOut');   // +（放大窗口，多看 5 天）
+    els.viewSizeVal = document.getElementById('viewSizeVal');
     els.btnDownload = document.getElementById('btnDownload');
 
     els.showAvg = document.getElementById('showAvg');
@@ -675,11 +741,14 @@
     els.btnClear.addEventListener('click', clearMarkers);
     els.btnSelectAll.addEventListener('click', selectAllMarkers);
     els.btnSave.addEventListener('click', saveMarkers);
-    els.btnResetZoom.addEventListener('click', function () {
-      if (state.chart) {
-        state.chart.resetZoom();
-        updateViewInfo(state.chart.getViewInfo());
-      }
+    els.btnViewAll.addEventListener('click', function () {
+      if (state.chart) state.chart.viewAll();
+    });
+    els.btnZoomIn.addEventListener('click', function () {
+      if (state.chart) state.chart.zoomBy(-5);   // 减小视窗（少看 5 天）
+    });
+    els.btnZoomOut.addEventListener('click', function () {
+      if (state.chart) state.chart.zoomBy(5);    // 放大视窗（多看 5 天）
     });
     els.btnDownload.addEventListener('click', downloadPNG);
 

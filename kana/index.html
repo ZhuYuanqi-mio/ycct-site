@@ -50,6 +50,12 @@
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
       <path d="M10.5 10.5L13.5 13.5M5 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
     </symbol>
+    <symbol id="icon-arrow-left" viewBox="0 0 16 16">
+      <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-arrow-right" viewBox="0 0 16 16">
+      <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -103,9 +109,20 @@
         <svg class="ico"><use href="#icon-bookmark"/></svg>
         保存标注
       </button>
-      <button class="btn" id="btnResetZoom" title="重置缩放，显示全部">
+
+      <span class="sep"></span>
+
+      <span class="opt" title="窗口大小（每次 ± 5 天）">
+        天数
+        <span class="fs-group">
+          <button class="fs-btn" id="btnZoomOut" type="button" title="放大窗口（多看 5 天）">+</button>
+          <span class="fs-val" id="viewSizeVal">20</span>
+          <button class="fs-btn" id="btnZoomIn" type="button" title="缩小窗口（少看 5 天）">−</button>
+        </span>
+      </span>
+      <button class="btn" id="btnViewAll" title="一次性显示全部交易日">
         <svg class="ico"><use href="#icon-zoom-reset"/></svg>
-        重置缩放
+        全部
       </button>
 
       <span class="sep"></span>

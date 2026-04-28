@@ -439,11 +439,10 @@ body {
 }
 .chart-wrap canvas {
   display: block;
-  cursor: grab;
+  cursor: default;
   font-family: -apple-system, 'PingFang SC', sans-serif;
   touch-action: none;
 }
-.chart-wrap canvas:active { cursor: grabbing; }
 .chart-hint {
   font-size: 11px;
   color: var(--text-4);
@@ -458,6 +457,51 @@ body {
   color: var(--text-2);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+/* ================== Pager bar (chart navigation) ================== */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pager-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-1);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .12s;
+  white-space: nowrap;
+}
+.pager-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.pager-btn:active { background: var(--bg-active); }
+.pager-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  background: var(--bg-input);
+}
+.pager-btn .ico { width: 11px; height: 11px; flex-shrink: 0; }
+.pager-info {
+  min-width: 220px;
+  text-align: center;
+  color: var(--text-3);
+}
+.pager-info b {
+  color: var(--text-1);
+  font-weight: 600;
 }
 
 .empty-chart {
