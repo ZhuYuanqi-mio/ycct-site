@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>股票日K线标注分析</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Crect x='17' y='14' width='8' height='36' fill='%23ef4444'/%3E%3Crect x='39' y='22' width='8' height='28' fill='none' stroke='%23ef4444' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ============== SVG 图标库（用 <use href="#icon-xxx"/> 引用） ============== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="icon-plus" viewBox="0 0 16 16">
+      <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-close" viewBox="0 0 16 16">
+      <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 16 16">
+      <path d="M3 4h10M6 4V2.5h4V4M5 4l.5 9a1 1 0 001 1h3a1 1 0 001-1l.5-9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-import" viewBox="0 0 16 16">
+      <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 16 16">
+      <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-eraser" viewBox="0 0 16 16">
+      <path d="M2 12.5l5 1L13 7.5 9 3.5 2.5 10 2 12.5zM7 13.5L9 11.5M2 14h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-check-all" viewBox="0 0 16 16">
+      <path d="M2 8.5l3 3 8-8M6 11.5l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-bookmark" viewBox="0 0 16 16">
+      <path d="M4 2h8v12l-4-3-4 3V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-warn" viewBox="0 0 16 16">
+      <path d="M8 1.5l7 12.5H1L8 1.5zM8 6.5v3.5M8 12v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-flask" viewBox="0 0 16 16">
+      <path d="M6 1h4M6.5 1v4.5L3 13a1 1 0 001 1.5h8a1 1 0 001-1.5L9.5 5.5V1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 16 16">
+      <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      <path d="M3 11V3a1 1 0 011-1h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-zoom-reset" viewBox="0 0 16 16">
+      <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      <path d="M10.5 10.5L13.5 13.5M5 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="header">
+  <span class="header-logo">🌿</span>
+  <h1>股票日K线标注分析</h1>
+  <div class="header-right">
+    <span id="zionStatus" class="zion-status">
+      <span class="dot"></span>
+      <span class="zion-status-text">检查 Zion 中</span>
+    </span>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- 左侧：股票列表 -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h3>我的股票</h3>
+      <button class="add-stock-btn" id="btnAddStock">
+        <svg class="ico"><use href="#icon-plus"/></svg>
+        新建
+      </button>
+    </div>
+    <div class="stock-list" id="stockList">
+      <div class="empty-tip">加载中...</div>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main">
+
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <button class="btn btn-primary" id="btnImport">
+        <svg class="ico"><use href="#icon-import"/></svg>
+        导入分时 Excel
+      </button>
+      <input type="file" id="fileImport" class="hidden-file" accept=".xlsx,.xls,.xlsm">
+
+      <span class="sep"></span>
+
+      <label class="switch" id="annotSwitch" title="开 = 双击日K打/取消标注；关 = 双击日K弹出该日分时图">
+        <input type="checkbox" id="annotMode" checked>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-label">标注模式</span>
+      </label>
+
+      <button class="btn" id="btnClear">
+        <svg class="ico"><use href="#icon-eraser"/></svg>
+        清空标注
+      </button>
+      <button class="btn" id="btnSelectAll">
+        <svg class="ico"><use href="#icon-check-all"/></svg>
+        全选
+      </button>
+      <button class="btn" id="btnSave">
+        <svg class="ico"><use href="#icon-bookmark"/></svg>
+        保存标注
+      </button>
+      <button class="btn" id="btnResetZoom" title="重置缩放，显示全部">
+        <svg class="ico"><use href="#icon-zoom-reset"/></svg>
+        重置缩放
+      </button>
+
+      <span class="sep"></span>
+
+      <label class="opt"><input type="checkbox" id="showAvg" checked> 显示区间平均值</label>
+
+      <span class="opt">
+        小数位 价
+        <input type="number" id="dpPrice" min="0" max="6" value="0">
+        额
+        <input type="number" id="dpAmount" min="0" max="6" value="0">
+        量
+        <input type="number" id="dpVolume" min="0" max="6" value="0">
+      </span>
+
+      <span class="opt">
+        单位
+        <select id="volUnit">
+          <option value="100">百</option>
+          <option value="1000">千</option>
+          <option value="10000">万</option>
+          <option value="100000">十万</option>
+          <option value="1000000">百万</option>
+          <option value="10000000">千万</option>
+          <option value="100000000" selected>亿</option>
+          <option value="1000000000">十亿</option>
+        </select>
+      </span>
+
+      <span class="opt">
+        字号
+        <span class="fs-group">
+          <button class="fs-btn" id="fsMinus" type="button">−</button>
+          <span class="fs-val" id="fsVal">12px</span>
+          <button class="fs-btn" id="fsPlus" type="button">+</button>
+        </span>
+        <input type="hidden" id="fontSize" value="12">
+      </span>
+
+      <span class="grow"></span>
+
+      <button class="btn btn-orange" id="btnDownload">
+        <svg class="ico"><use href="#icon-download"/></svg>
+        下载图片
+      </button>
+    </div>
+
+    <!-- 标注 tags -->
+    <div class="panel" style="padding:10px 14px">
+      <div class="panel-title">
+        当前标注
+        <span class="dim">双击 K 线插入；右键删除最近的</span>
+        <span class="grow"></span>
+        <span class="status" id="status"></span>
+      </div>
+      <div class="marker-tags" id="markerTags"></div>
+    </div>
+
+    <!-- 图表 -->
+    <div class="panel" style="padding:10px">
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">加载中</div>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <div class="empty-chart">初始化中...</div>
+      </div>
+    </div>
+
+    <!-- 区间数据表 -->
+    <div class="panel" id="intervalSec" style="display:none"></div>
+
+  </main>
+</div>
+
+<!-- 新建股票 Modal -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>新建股票</h3>
+    <label>股票名称</label>
+    <input type="text" id="inpName" placeholder="例：张小泉">
+    <label>股票代码</label>
+    <input type="text" id="inpCode" placeholder="例：301055">
+    <div class="modal-actions">
+      <button class="btn" id="btnCancel">取消</button>
+      <button class="btn btn-primary" id="btnSubmit">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分时图右下角浮窗（关闭标注模式时双击日 K 弹出） -->
+<div class="intraday-popout" id="intradayPop">
+  <div class="ip-header">
+    <div class="ip-title">
+      <span class="ip-symbol" id="ipSymbol">—</span>
+      <span class="ip-date" id="ipDate"></span>
+      <span class="ip-change" id="ipChange"></span>
+      <span class="ip-meta" id="ipMeta"></span>
+    </div>
+    <button class="ip-close" id="ipClose" title="关闭 (ESC)">
+      <svg class="ico"><use href="#icon-close"/></svg>
+    </button>
+  </div>
+  <div class="ip-body">
+    <div class="ip-loading" id="ipLoading">
+      <div class="spinner"></div>
+      <div class="loading-text">加载分时数据...</div>
+    </div>
+    <div class="ip-empty" id="ipEmpty" style="display:none"></div>
+    <canvas id="ipCanvas"></canvas>
+  </div>
+  <div class="ip-hint">双击插入分钟标注 · 右键删除最近的标注 · ESC 关闭</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- SheetJS 用于解析 Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script src="config.js"></script>
+<script src="js/zion.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
