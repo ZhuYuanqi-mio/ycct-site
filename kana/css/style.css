@@ -578,9 +578,12 @@ body {
   border-collapse: collapse;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  table-layout: fixed;
   width: max-content;
   min-width: 100%;
 }
+.calc-table col.calc-col-label { width: 88px; }
+.calc-table col.calc-col-data  { width: 120px; }
 .calc-table tr.calc-row-name {
   background: var(--bg-input);
   border-bottom: 1px solid var(--border);
@@ -714,6 +717,92 @@ body {
   font-size: 12px;
   color: var(--text-4);
 }
+
+/* ================== Calc 草稿浮框（双击量/额格子时浮现） ================== */
+.calc-float {
+  position: fixed;
+  z-index: 90;
+  background: #fff;
+  border: 1px solid var(--orange);
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(17, 24, 39, 0.16);
+  padding: 8px 12px;
+  min-width: 168px;
+  font-size: 12px;
+  pointer-events: auto;
+  animation: cfPop 0.12s ease-out;
+}
+@keyframes cfPop {
+  from { opacity: 0; transform: translateY(2px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.calc-float .cf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.calc-float .cf-tag {
+  font-weight: 600;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.calc-float .cf-tag.t-volume { background: #dbeafe; color: #1d4ed8; }
+.calc-float .cf-tag.t-amount { background: #fee2e2; color: #b91c1c; }
+.calc-float .cf-count {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.calc-float .cf-value {
+  font-weight: 700;
+  font-size: 18px;
+  color: #dc2626;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.calc-float .cf-actions {
+  display: flex;
+  gap: 6px;
+}
+.calc-float .cf-btn {
+  flex: 1;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.calc-float .cf-btn.ok {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.calc-float .cf-btn.ok:hover {
+  background: var(--orange);
+  color: #fff;
+}
+.calc-float .cf-btn.cancel:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+/* 保存计算 modal 里的"当前累加结果"摘要 */
+.calc-modal-summary {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.calc-modal-summary b { color: #dc2626; font-size: 14px; }
 
 /* ================== Modal ================== */
 .modal-mask {

@@ -247,6 +247,33 @@
   <div class="ip-hint">双击插入分钟标注 · 右键删除最近的标注 · ESC 关闭</div>
 </div>
 
+<!-- 计算草稿浮框（双击量/额格子时显示在格子右上方） -->
+<div class="calc-float" id="calcFloat" style="display:none">
+  <div class="cf-head">
+    <span class="cf-tag" id="cfTag"></span>
+    <span class="cf-count" id="cfCount"></span>
+  </div>
+  <div class="cf-value" id="cfValue">—</div>
+  <div class="cf-actions">
+    <button class="cf-btn ok" id="cfSave" title="保存（Enter）">✓ 保存</button>
+    <button class="cf-btn cancel" id="cfCancel" title="取消（Esc）">✗ 取消</button>
+  </div>
+</div>
+
+<!-- 保存计算的命名弹窗 -->
+<div class="modal-mask" id="calcModalMask">
+  <div class="modal">
+    <h3>保存计算</h3>
+    <div class="calc-modal-summary" id="calcModalSummary"></div>
+    <label>标题</label>
+    <input type="text" id="calcModalTitle" placeholder="例：财报后5日爆量" maxlength="40">
+    <div class="modal-actions">
+      <button class="btn" id="calcModalCancel">取消</button>
+      <button class="btn btn-primary" id="calcModalSubmit">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 

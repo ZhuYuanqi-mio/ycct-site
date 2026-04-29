@@ -167,6 +167,13 @@
       var py = e.clientY - rect.top;
       var hit = self.getCellAt(px, py);
       if (hit) {
+        // 把命中格子的屏幕坐标也带回去（用于浮框定位）
+        hit.screen = {
+          left: rect.left + hit.x,
+          top: rect.top + hit.y,
+          right: rect.left + hit.x + hit.w,
+          bottom: rect.top + hit.y + hit.h
+        };
         if (self.opts.onCellDblclick) self.opts.onCellDblclick(hit);
         return;
       }
@@ -802,6 +809,12 @@
       var py = e.clientY - rect.top;
       var hit = self.getCellAt(px, py);
       if (hit) {
+        hit.screen = {
+          left: rect.left + hit.x,
+          top: rect.top + hit.y,
+          right: rect.left + hit.x + hit.w,
+          bottom: rect.top + hit.y + hit.h
+        };
         if (self.opts.onCellDblclick) self.opts.onCellDblclick(hit);
         return;
       }
