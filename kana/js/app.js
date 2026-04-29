@@ -612,7 +612,8 @@
       dpAmount: +els.dpAmount.value || 0,
       dpVolume: +els.dpVolume.value || 0,
       volUnit: +els.volUnit.value || 100000000,
-      fontSize: +els.fontSize.value || 12
+      fontSize: +els.fontSize.value || 12,
+      showAvg: !!els.showAvg.checked
     };
   }
 
@@ -626,6 +627,7 @@
       els.fontSize.value = dp.fontSize;
       els.fsVal.textContent = dp.fontSize + 'px';
     }
+    if (dp.showAvg != null) els.showAvg.checked = !!dp.showAvg;
   }
 
   function adjFs(d) {
