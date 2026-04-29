@@ -1512,7 +1512,6 @@
     els.intervalEnd.value = '11:30';
     els.intervalTitle.value = '';
     els.intervalResultValue.textContent = '—';
-    els.intervalResultMeta.textContent = '正在计算 …';
     if (els.intervalChartEmpty) {
       els.intervalChartEmpty.style.display = '';
       els.intervalChartEmpty.textContent = '加载分时数据 …';
@@ -1584,12 +1583,9 @@
     var endT = els.intervalEnd.value || '15:00';
     if (startT > endT) { var tmp = startT; startT = endT; endT = tmp; }
     els.intervalResultValue.textContent = '加载中 …';
-    els.intervalResultMeta.textContent = dates[dayIdx] + '  ' + startT + ' ~ ' + endT +
-      (fallback ? '（非交易日，已自动取就近）' : '');
     _fetchTicksForDayIdx(dayIdx).then(function (ticks) {
       if (!ticks || ticks.length === 0) {
         els.intervalResultValue.textContent = '无数据';
-        els.intervalResultMeta.textContent = '该日没有分时数据';
         state.calc._intervalLoaded = null;
         drawIntervalChart(null, null, null);
         if (els.intervalChartEmpty) {
@@ -1616,15 +1612,12 @@
         n: n
       };
       els.intervalResultValue.textContent = (total / 1e8).toFixed(2) + ' 亿元';
-      els.intervalResultMeta.textContent = state.klineData.dates[dayIdx] +
-        '  ' + startT + ' ~ ' + endT + '  共 ' + n + ' 个分时点';
       // 拿昨收：dayIdx-1 的 close（与双击日 K 弹出的分时浮窗保持一致）
       var prevClose = (dayIdx > 0 && state.klineData.close[dayIdx - 1] != null)
         ? state.klineData.close[dayIdx - 1] : null;
       drawIntervalChart(ticks, startT, endT, prevClose);
     }).catch(function (e) {
       els.intervalResultValue.textContent = '加载失败';
-      els.intervalResultMeta.textContent = e.message || String(e);
       state.calc._intervalLoaded = null;
       drawIntervalChart(null, null, null);
       if (els.intervalChartEmpty) {
@@ -1956,7 +1949,6 @@
       dayIdx: dayIdx, date: date, startT: startT, endT: endT, total: total, n: n
     };
     els.intervalResultValue.textContent = (total / 1e8).toFixed(2) + ' 亿元';
-    els.intervalResultMeta.textContent = date + '  ' + startT + ' ~ ' + endT + '  共 ' + n + ' 个分时点';
     var prevClose = (dayIdx > 0 && state.klineData.close[dayIdx - 1] != null)
       ? state.klineData.close[dayIdx - 1] : null;
     drawIntervalChart(ticks, startT, endT, prevClose);
@@ -2122,7 +2114,6 @@
     els.intervalStart = document.getElementById('intervalStart');
     els.intervalEnd = document.getElementById('intervalEnd');
     els.intervalResultValue = document.getElementById('intervalResultValue');
-    els.intervalResultMeta = document.getElementById('intervalResultMeta');
     els.intervalTitle = document.getElementById('intervalTitle');
     els.intervalCancel = document.getElementById('intervalCancel');
     els.intervalSubmit = document.getElementById('intervalSubmit');
