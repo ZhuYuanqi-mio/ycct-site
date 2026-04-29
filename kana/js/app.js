@@ -1173,6 +1173,14 @@
     if (av >= 1e4) return (value / 1e4).toFixed(2);
     return Math.round(value).toLocaleString();
   }
+  // 分时计算表专用：成交额一律按「亿」显示，附「亿」字单位；成交量沿用自适应
+  function fmtIntradayCalcValue(value, type) {
+    if (value == null || !isFinite(value)) return '-';
+    if (type === 'amount') {
+      return (value / 1e8).toFixed(2) + ' 亿';
+    }
+    return fmtCalcValueNumOnly(value, type);
+  }
   function shortDate(d) {        // '2026-01-15' → '0115'
     if (!d) return '';
     return d.slice(5).replace('-', '');
@@ -1265,7 +1273,7 @@
       var srcDate = (c.source && c.source[0]) ? c.source[0].date : '';
       tr1 += '<td>' + escapeHtml(c.calc_name) + typeTagHtml(c.calc_type) +
         '<button class="calc-del" data-action="del-intraday" data-id="' + c.id + '" title="删除">×</button></td>';
-      tr2 += '<td>' + fmtCalcValueNumOnly(c.calc_value, c.calc_type) + '</td>';
+      tr2 += '<td>' + fmtIntradayCalcValue(c.calc_value, c.calc_type) + '</td>';
       tr3 += '<td>' + shortDate(srcDate) + '</td>';
       tr4 += '<td>' + timeRangeStr(c.source) + '</td>';
     }
