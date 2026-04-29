@@ -34,17 +34,15 @@
     // 量/额累加计算
     calc: {
       mode: false,                   // 计算开关
-      // 日 K 草稿：{type:'volume'|'amount', cells:[{date, col, value}]}
-      dailyDraft: null,
-      // 分时草稿：{type, kline_id, cells:[{date, time, col, value}]}
-      intradayDraft: null,
+      // 日 K 草稿：按类型分别保存。每条 = {type, cells:[{date,col,value}]}
+      dailyDraft: { volume: null, amount: null },
+      // 分时草稿：同样按类型分。kline_id 共享在 bag 上
+      intradayDraft: { volume: null, amount: null, kline_id: null, date: null },
       // 已保存（来自 Zion）
-      // daily 项：{id, calc_name, calc_type, calc_value, source:[{date,col,value}]}
-      // intraday 项：上面 + intraday_kline_id
       daily: [],
       intraday: [],
-      // 草稿浮框：跟踪当前活跃的草稿和锚点位置
-      float: { scope: null, anchorRect: null }
+      // 草稿浮框：scope + anchorRect + pendingType（保存 modal 时记当前在保存哪个 type）
+      float: { scope: null, anchorRect: null, pendingType: null }
     }
   };
 
@@ -334,6 +332,8 @@
       fontSize: dpOpts.fontSize,
       onDblclick: onDayChartDblclick,
       onCellDblclick: onDailyCellDblclick,
+      onCellRangeSelect: onDailyCellRangeSelect,
+      calcModeEnabled: state.calc.mode,
       calcDraftKeys: getDailyDraftKeys(),
       calcSavedKeys: getDailySavedKeys(),
       onView: updateViewInfo
@@ -505,8 +505,10 @@
     }
     state.intraday.chart = null;
     // 关闭浮窗时也丢弃未保存的分时草稿（避免下次打开同一天看到一份残留草稿但失去当时上下文）
-    if (state.calc.intradayDraft) {
-      state.calc.intradayDraft = null;
+    var bag = state.calc.intradayDraft;
+    if (bag && (bag.volume || bag.amount)) {
+      bag.volume = null; bag.amount = null; bag.kline_id = null; bag.date = null;
+      refreshIntradayChartCalcKeys();
       renderCalcTables();
     }
     if (state.calc.float.scope === 'intraday') hideCalcFloat();
@@ -594,6 +596,8 @@
       markers: state.intraday.markers,
       onMark: toggleIntradayMarker,
       onCellDblclick: onIntradayCellDblclick,
+      onCellRangeSelect: onIntradayCellRangeSelect,
+      calcModeEnabled: state.calc.mode,
       calcDraftKeys: getIntradayDraftKeys(),
       calcSavedKeys: getIntradaySavedKeys()
     });
@@ -834,8 +838,8 @@
   // ==================================================================
 
   function clearCalcs() {
-    state.calc.dailyDraft = null;
-    state.calc.intradayDraft = null;
+    state.calc.dailyDraft = { volume: null, amount: null };
+    state.calc.intradayDraft = { volume: null, amount: null, kline_id: null, date: null };
     state.calc.daily = [];
     state.calc.intraday = [];
     hideCalcFloat();
@@ -856,47 +860,69 @@
       return;
     }
     addToDailyDraft(hit);
+    showCalcFloat('daily', hit.screen);
   }
 
-  function addToDailyDraft(hit) {
-    var d = state.calc.dailyDraft;
-    if (!d) {
-      d = state.calc.dailyDraft = { type: hit.col, cells: [] };
-    }
-    if (d.type !== hit.col) {
-      toast('一列只能加同一类（' + (d.type === 'volume' ? '成交量' : '成交额') + '）');
-      return;
-    }
+  // 框选拖动结束：批量加入对应类型的草稿
+  function onDailyCellRangeSelect(hits, anchorRect) {
+    if (!state.calc.mode) return toast('请先打开「计算」开关');
+    if (!hits || hits.length === 0) return;
+    for (var i = 0; i < hits.length; i++) addToDailyDraft(hits[i], true);
+    refreshDailyChartCalcKeys();
+    showCalcFloat('daily', anchorRect);
+    renderCalcTables();
+  }
+
+  // hit.col = 'volume' / 'amount'。同 type 的 cell 累加；不同 type 自动并行
+  // _silent: 批量调用时不每次刷新
+  function addToDailyDraft(hit, _silent) {
+    var type = hit.col;
+    var bag = state.calc.dailyDraft;
+    var d = bag[type];
+    if (!d) d = bag[type] = { type: type, cells: [] };
     var existIdx = -1;
     for (var i = 0; i < d.cells.length; i++) {
-      if (d.cells[i].date === hit.date && d.cells[i].col === hit.col) { existIdx = i; break; }
+      if (d.cells[i].date === hit.date && d.cells[i].col === type) { existIdx = i; break; }
     }
     if (existIdx >= 0) {
-      d.cells.splice(existIdx, 1);
-      if (d.cells.length === 0) state.calc.dailyDraft = null;
+      // 框选时不希望取消已有；只在单击时切换
+      if (!_silent) {
+        d.cells.splice(existIdx, 1);
+        if (d.cells.length === 0) bag[type] = null;
+      }
     } else {
-      d.cells.push({ date: hit.date, col: hit.col, value: Number(hit.value) });
+      d.cells.push({ date: hit.date, col: type, value: Number(hit.value) });
       d.cells.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     }
-    refreshDailyChartCalcKeys();
-    if (state.calc.dailyDraft) {
-      // 草稿还在，浮框跟到最新双击的格子上方
-      showCalcFloat('daily', hit.screen);
-    } else {
-      hideCalcFloat();
+    if (!_silent) {
+      refreshDailyChartCalcKeys();
+      renderCalcTables();
+      if (!hasAnyDailyDraft()) hideCalcFloat();
     }
-    renderCalcTables();
   }
 
-  function cancelDailyDraft() {
-    state.calc.dailyDraft = null;
+  function hasAnyDailyDraft() {
+    var b = state.calc.dailyDraft;
+    return !!(b && (b.volume || b.amount));
+  }
+  function hasAnyIntradayDraft() {
+    var b = state.calc.intradayDraft;
+    return !!(b && (b.volume || b.amount));
+  }
+
+  function cancelDailyDraft(type) {
+    if (type) {
+      state.calc.dailyDraft[type] = null;
+    } else {
+      state.calc.dailyDraft = { volume: null, amount: null };
+    }
     refreshDailyChartCalcKeys();
-    hideCalcFloat();
+    if (hasAnyDailyDraft()) updateCalcFloat(); else hideCalcFloat();
     renderCalcTables();
   }
 
-  function doSaveDailyCalc(name) {
-    var d = state.calc.dailyDraft;
+  function doSaveDailyCalc(type, name) {
+    var d = state.calc.dailyDraft[type];
     if (!d || d.cells.length === 0) return;
     if (!state.activeStockId) return toast('请先选择股票');
     var sum = d.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
@@ -911,9 +937,9 @@
     Zion.saveCalc(state.activeStockId, payload).then(function (id) {
       var rec = Object.assign({}, payload, { id: Number(id) });
       state.calc.daily.push(rec);
-      state.calc.dailyDraft = null;
+      state.calc.dailyDraft[type] = null;
       refreshDailyChartCalcKeys();
-      hideCalcFloat();
+      if (hasAnyDailyDraft()) updateCalcFloat(); else hideCalcFloat();
       renderCalcTables();
       toast('已保存：' + payload.calc_name);
     }).catch(function (e) {
@@ -945,53 +971,73 @@
       return;
     }
     addToIntradayDraft(hit);
+    showCalcFloat('intraday', hit.screen);
   }
 
-  function addToIntradayDraft(hit) {
+  function onIntradayCellRangeSelect(hits, anchorRect) {
+    if (!state.calc.mode) return toast('请先打开「计算」开关');
+    if (!hits || hits.length === 0) return;
+    for (var i = 0; i < hits.length; i++) addToIntradayDraft(hits[i], true);
+    refreshIntradayChartCalcKeys();
+    showCalcFloat('intraday', anchorRect);
+    renderCalcTables();
+  }
+
+  function addToIntradayDraft(hit, _silent) {
     var klineId = getCurrentKlineId();
     if (!klineId) return toast('未取到当前分时的 kline_id');
     var dayIdx = state.intraday.dayIdx;
     var date = state.klineData.dates[dayIdx];
 
-    var d = state.calc.intradayDraft;
-    // 如果之前的草稿绑定到别的天（用户切换了分时浮窗），自动丢弃旧草稿重开
-    if (d && d.kline_id !== klineId) d = state.calc.intradayDraft = null;
-    if (!d) {
-      d = state.calc.intradayDraft = { type: hit.col, kline_id: klineId, date: date, cells: [] };
+    var bag = state.calc.intradayDraft;
+    // 切换到别的分时天时丢弃旧草稿
+    if (bag.kline_id != null && bag.kline_id !== klineId) {
+      bag.volume = null; bag.amount = null;
     }
-    if (d.type !== hit.col) {
-      toast('一列只能加同一类（' + (d.type === 'volume' ? '交易量' : '交易额') + '）');
-      return;
-    }
+    bag.kline_id = klineId;
+    bag.date = date;
+
+    var type = hit.col;
+    var d = bag[type];
+    if (!d) d = bag[type] = { type: type, cells: [] };
     var existIdx = -1;
     for (var i = 0; i < d.cells.length; i++) {
-      if (d.cells[i].time === hit.time && d.cells[i].col === hit.col) { existIdx = i; break; }
+      if (d.cells[i].time === hit.time && d.cells[i].col === type) { existIdx = i; break; }
     }
     if (existIdx >= 0) {
-      d.cells.splice(existIdx, 1);
-      if (d.cells.length === 0) state.calc.intradayDraft = null;
+      if (!_silent) {
+        d.cells.splice(existIdx, 1);
+        if (d.cells.length === 0) bag[type] = null;
+      }
     } else {
-      d.cells.push({ date: date, time: hit.time, col: hit.col, value: Number(hit.value) });
+      d.cells.push({ date: date, time: hit.time, col: type, value: Number(hit.value) });
       d.cells.sort(function (a, b) { return a.time < b.time ? -1 : 1; });
     }
-    refreshIntradayChartCalcKeys();
-    if (state.calc.intradayDraft) {
-      showCalcFloat('intraday', hit.screen);
-    } else {
-      hideCalcFloat();
+    if (!_silent) {
+      refreshIntradayChartCalcKeys();
+      renderCalcTables();
+      if (!hasAnyIntradayDraft()) hideCalcFloat();
     }
-    renderCalcTables();
   }
 
-  function cancelIntradayDraft() {
-    state.calc.intradayDraft = null;
+  function cancelIntradayDraft(type) {
+    var bag = state.calc.intradayDraft;
+    if (type) {
+      bag[type] = null;
+    } else {
+      bag.volume = null; bag.amount = null; bag.kline_id = null; bag.date = null;
+    }
+    if (!hasAnyIntradayDraft()) {
+      bag.kline_id = null; bag.date = null;
+    }
     refreshIntradayChartCalcKeys();
-    hideCalcFloat();
+    if (hasAnyIntradayDraft()) updateCalcFloat(); else hideCalcFloat();
     renderCalcTables();
   }
 
-  function doSaveIntradayCalc(name) {
-    var d = state.calc.intradayDraft;
+  function doSaveIntradayCalc(type, name) {
+    var bag = state.calc.intradayDraft;
+    var d = bag[type];
     if (!d || d.cells.length === 0) return;
     if (!state.activeStockId) return toast('请先选择股票');
     var sum = d.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
@@ -1001,14 +1047,15 @@
       calc_value: sum,
       source: d.cells.slice(),
       scope: 'intraday',
-      intraday_kline_id: d.kline_id
+      intraday_kline_id: bag.kline_id
     };
     Zion.saveCalc(state.activeStockId, payload).then(function (id) {
       var rec = Object.assign({}, payload, { id: Number(id) });
       state.calc.intraday.push(rec);
-      state.calc.intradayDraft = null;
+      bag[type] = null;
+      if (!hasAnyIntradayDraft()) { bag.kline_id = null; bag.date = null; }
       refreshIntradayChartCalcKeys();
-      hideCalcFloat();
+      if (hasAnyIntradayDraft()) updateCalcFloat(); else hideCalcFloat();
       renderCalcTables();
       toast('已保存：' + payload.calc_name);
     }).catch(function (e) {
@@ -1036,8 +1083,12 @@
   // ----- 同步给 chart 的高亮键 -----
   function getDailyDraftKeys() {
     var s = new Set();
-    var d = state.calc.dailyDraft;
-    if (d) for (var i = 0; i < d.cells.length; i++) s.add(d.cells[i].date + '|' + d.cells[i].col);
+    var bag = state.calc.dailyDraft;
+    ['volume', 'amount'].forEach(function (t) {
+      var d = bag[t];
+      if (!d) return;
+      for (var i = 0; i < d.cells.length; i++) s.add(d.cells[i].date + '|' + d.cells[i].col);
+    });
     return s;
   }
   function getDailySavedKeys() {
@@ -1051,11 +1102,14 @@
   }
   function getIntradayDraftKeys() {
     var s = new Set();
-    var d = state.calc.intradayDraft;
+    var bag = state.calc.intradayDraft;
     var klineId = getCurrentKlineId();
-    if (d && d.kline_id === klineId) {
+    if (bag.kline_id !== klineId) return s;
+    ['volume', 'amount'].forEach(function (t) {
+      var d = bag[t];
+      if (!d) return;
       for (var i = 0; i < d.cells.length; i++) s.add(d.cells[i].time + '|' + d.cells[i].col);
-    }
+    });
     return s;
   }
   function getIntradaySavedKeys() {
@@ -1202,27 +1256,39 @@
 
   // ============== 草稿浮框 ==============
   function showCalcFloat(scope, anchorRect) {
-    var draft = scope === 'daily' ? state.calc.dailyDraft : state.calc.intradayDraft;
-    if (!draft || draft.cells.length === 0) {
-      hideCalcFloat();
-      return;
-    }
     state.calc.float.scope = scope;
     state.calc.float.anchorRect = anchorRect || state.calc.float.anchorRect;
+    updateCalcFloat();
+  }
 
-    // 内容
-    var sum = draft.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
-    var typeName;
-    if (scope === 'daily') {
-      typeName = draft.type === 'volume' ? '成交量' : '成交额';
-    } else {
-      typeName = draft.type === 'volume' ? '交易量' : '交易额';
-    }
-    els.cfTag.textContent = typeName;
-    els.cfTag.className = 'cf-tag t-' + draft.type;
-    els.cfCount.textContent = draft.cells.length + ' 笔';
-    els.cfValue.textContent = fmtCalcValue(sum, draft.type);
-
+  function updateCalcFloat() {
+    var scope = state.calc.float.scope;
+    if (!scope || !els.calcFloat) return;
+    var bag = scope === 'daily' ? state.calc.dailyDraft : state.calc.intradayDraft;
+    var blocks = [];
+    ['volume', 'amount'].forEach(function (type) {
+      var d = bag[type];
+      if (!d || d.cells.length === 0) return;
+      var sum = d.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
+      var typeName = scope === 'daily'
+        ? (type === 'volume' ? '成交量' : '成交额')
+        : (type === 'volume' ? '交易量' : '交易额');
+      blocks.push(
+        '<div class="cf-block">' +
+          '<div class="cf-head">' +
+            '<span class="cf-tag t-' + type + '">' + typeName + '</span>' +
+            '<span class="cf-count">' + d.cells.length + ' 笔</span>' +
+          '</div>' +
+          '<div class="cf-value">' + escapeHtml(fmtCalcValue(sum, type)) + '</div>' +
+          '<div class="cf-actions">' +
+            '<button class="cf-btn ok" data-act="save" data-type="' + type + '" title="保存">✓ 保存</button>' +
+            '<button class="cf-btn cancel" data-act="cancel" data-type="' + type + '" title="取消">✗ 取消</button>' +
+          '</div>' +
+        '</div>'
+      );
+    });
+    if (blocks.length === 0) { hideCalcFloat(); return; }
+    els.calcFloat.innerHTML = blocks.join('<div class="cf-divider"></div>');
     els.calcFloat.style.display = '';
     positionCalcFloat();
   }
@@ -1230,6 +1296,7 @@
   function hideCalcFloat() {
     state.calc.float.scope = null;
     state.calc.float.anchorRect = null;
+    state.calc.float.pendingType = null;
     if (els.calcFloat) els.calcFloat.style.display = 'none';
   }
 
@@ -1258,28 +1325,27 @@
   }
 
   // ============== 保存计算 modal ==============
-  function openCalcModal() {
+  function openCalcModal(type) {
     var scope = state.calc.float.scope;
-    if (!scope) return;
-    var draft = scope === 'daily' ? state.calc.dailyDraft : state.calc.intradayDraft;
+    if (!scope || !type) return;
+    var bag = scope === 'daily' ? state.calc.dailyDraft : state.calc.intradayDraft;
+    var draft = bag[type];
     if (!draft || draft.cells.length === 0) return;
+    state.calc.float.pendingType = type;
 
     var sum = draft.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
-    var typeName;
-    if (scope === 'daily') {
-      typeName = draft.type === 'volume' ? '成交量' : '成交额';
-    } else {
-      typeName = draft.type === 'volume' ? '交易量' : '交易额';
-    }
+    var typeName = scope === 'daily'
+      ? (type === 'volume' ? '成交量' : '成交额')
+      : (type === 'volume' ? '交易量' : '交易额');
     var rangeText;
     if (scope === 'daily') {
       rangeText = '日期范围：' + dateRangeStr(draft.cells);
     } else {
-      rangeText = shortDate(draft.date) + '  ' + timeRangeStr(draft.cells);
+      rangeText = shortDate(bag.date) + '  ' + timeRangeStr(draft.cells);
     }
     els.calcModalSummary.innerHTML =
       '<div>类型：' + typeName + ' · ' + draft.cells.length + ' 笔</div>' +
-      '<div style="margin-top:4px">累加结果：<b>' + fmtCalcValue(sum, draft.type) + '</b></div>' +
+      '<div style="margin-top:4px">累加结果：<b>' + fmtCalcValue(sum, type) + '</b></div>' +
       '<div style="margin-top:4px;color:var(--text-4)">' + rangeText + '</div>';
 
     els.calcModalTitle.value = '';
@@ -1296,9 +1362,11 @@
       return toast('请输入标题');
     }
     var scope = state.calc.float.scope;
+    var type = state.calc.float.pendingType;
     closeCalcModal();
-    if (scope === 'daily') doSaveDailyCalc(name);
-    else if (scope === 'intraday') doSaveIntradayCalc(name);
+    if (!type) return;
+    if (scope === 'daily') doSaveDailyCalc(type, name);
+    else if (scope === 'intraday') doSaveIntradayCalc(type, name);
   }
 
   // 计算面板内的 click 委托（仅删除已保存项）+ 浮框 / modal 按钮
@@ -1307,10 +1375,13 @@
 
     els.calcMode.addEventListener('change', function () {
       state.calc.mode = els.calcMode.checked;
+      // 同步 chart 的"框选模式可用"标志
+      if (state.chart) state.chart.update({ calcModeEnabled: state.calc.mode });
+      if (state.intraday.chart) state.intraday.chart.update({ calcModeEnabled: state.calc.mode });
       // 关闭时丢弃所有未保存草稿
       if (!state.calc.mode) {
-        state.calc.dailyDraft = null;
-        state.calc.intradayDraft = null;
+        state.calc.dailyDraft = { volume: null, amount: null };
+        state.calc.intradayDraft = { volume: null, amount: null, kline_id: null, date: null };
         refreshDailyChartCalcKeys();
         refreshIntradayChartCalcKeys();
         hideCalcFloat();
@@ -1329,13 +1400,20 @@
       }
     });
 
-    // 草稿浮框按钮
-    els.cfSave.addEventListener('click', openCalcModal);
-    els.cfCancel.addEventListener('click', function () {
-      var scope = state.calc.float.scope;
-      if (scope === 'daily') cancelDailyDraft();
-      else if (scope === 'intraday') cancelIntradayDraft();
-      else hideCalcFloat();
+    // 草稿浮框按钮（事件委托：每个 type 一对 ✓ ✗）
+    els.calcFloat.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      var act = btn.getAttribute('data-act');
+      var type = btn.getAttribute('data-type');
+      if (!type) return;
+      if (act === 'save') {
+        openCalcModal(type);
+      } else if (act === 'cancel') {
+        var scope = state.calc.float.scope;
+        if (scope === 'daily') cancelDailyDraft(type);
+        else if (scope === 'intraday') cancelIntradayDraft(type);
+      }
     });
 
     // 保存 modal 按钮
@@ -1463,11 +1541,7 @@
 
     // 草稿浮框
     els.calcFloat = document.getElementById('calcFloat');
-    els.cfTag = document.getElementById('cfTag');
-    els.cfCount = document.getElementById('cfCount');
-    els.cfValue = document.getElementById('cfValue');
-    els.cfSave = document.getElementById('cfSave');
-    els.cfCancel = document.getElementById('cfCancel');
+    // 浮框内部由 updateCalcFloat 动态渲染
 
     // 保存计算 modal
     els.calcModalMask = document.getElementById('calcModalMask');

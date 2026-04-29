@@ -253,18 +253,8 @@
   <div class="ip-hint">双击插入分钟标注 · 右键删除最近的标注 · ESC 关闭</div>
 </div>
 
-<!-- 计算草稿浮框（双击量/额格子时显示在格子右上方） -->
-<div class="calc-float" id="calcFloat" style="display:none">
-  <div class="cf-head">
-    <span class="cf-tag" id="cfTag"></span>
-    <span class="cf-count" id="cfCount"></span>
-  </div>
-  <div class="cf-value" id="cfValue">—</div>
-  <div class="cf-actions">
-    <button class="cf-btn ok" id="cfSave" title="保存（Enter）">✓ 保存</button>
-    <button class="cf-btn cancel" id="cfCancel" title="取消（Esc）">✗ 取消</button>
-  </div>
-</div>
+<!-- 计算草稿浮框（双击量/额格子或拖框选中时显示） -->
+<div class="calc-float" id="calcFloat" style="display:none"></div>
 
 <!-- 保存计算的命名弹窗 -->
 <div class="modal-mask" id="calcModalMask">

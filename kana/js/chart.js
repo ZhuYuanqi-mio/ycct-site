@@ -146,6 +146,8 @@
 
     canvas.addEventListener('mouseleave', function () {
       self.hoverIdx = -1;
+      self._hoverCell = null;
+      if (self._drag) self._drag = null;
       self.draw();
       if (self.opts.onHover) self.opts.onHover(-1);
     });
@@ -156,7 +158,25 @@
       var px = e.clientX - rect.left;
       var py = e.clientY - rect.top;
 
-      // 悬停检测（仅在 K 线区域内）
+      // 拖框选中
+      if (self._drag) {
+        self._drag.x1 = px; self._drag.y1 = py;
+        if (Math.abs(px - self._drag.x0) + Math.abs(py - self._drag.y0) > 3) self._drag.moved = true;
+        self.draw();
+        return;
+      }
+
+      // 标注表 cell hover
+      var cell = self.getCellAt(px, py);
+      var prevKey = self._hoverCell && self._hoverCell.key;
+      var nextKey = cell && cell.key;
+      if (prevKey !== nextKey) {
+        self._hoverCell = cell;
+        self.draw();
+        return;
+      }
+
+      // K 线柱列悬停（仅在 K 线区域内）
       if (py < self._chartTop || py > self._chartBottom) {
         if (self.hoverIdx !== -1) {
           self.hoverIdx = -1;
@@ -171,6 +191,55 @@
         self.draw();
         if (self.opts.onHover) self.opts.onHover(idx);
       }
+    });
+
+    // ---- 鼠标按下：在标注表 cell 区附近 + calcMode 开启 → 启动拖框选中 ----
+    canvas.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      if (!self.opts.calcModeEnabled) return;
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      var py = e.clientY - rect.top;
+      // 仅在标注表区域（sec1）内启动拖框
+      var top = self._sec1Top;
+      var bot = self._sec2Top + self._sec2H;
+      if (!self._sec1H || py < top || py > bot) return;
+      self._drag = { active: true, moved: false, x0: px, y0: py, x1: px, y1: py };
+    });
+
+    canvas.addEventListener('mouseup', function (e) {
+      if (!self._drag) return;
+      var d = self._drag;
+      self._drag = null;
+      if (!d.moved) { self.draw(); return; }
+      // 收集矩形内所有 cell hits
+      var x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1);
+      var y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
+      var hits = [];
+      var rect = canvas.getBoundingClientRect();
+      for (var i = 0; i < (self._cellHits || []).length; i++) {
+        var h = self._cellHits[i];
+        var cx = h.x + h.w / 2;
+        var cy = h.y + h.h / 2;
+        if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) {
+          hits.push(Object.assign({}, h, {
+            screen: {
+              left: rect.left + h.x,
+              top: rect.top + h.y,
+              right: rect.left + h.x + h.w,
+              bottom: rect.top + h.y + h.h
+            }
+          }));
+        }
+      }
+      self.draw();
+      if (hits.length === 0) return;
+      // 浮框 anchor：用矩形右上角
+      var anchor = {
+        left: rect.left + x1, top: rect.top + y0,
+        right: rect.left + x1, bottom: rect.top + y1
+      };
+      if (self.opts.onCellRangeSelect) self.opts.onCellRangeSelect(hits, anchor);
     });
 
     // ---- 双击：先看是否命中标注表的量/额单元格 → onCellDblclick；否则 onDblclick ----
@@ -311,6 +380,7 @@
   YcctChart.prototype.draw = function () {
     if (!this.opts.data) return;
     this._layout();
+    this._cellHits = [];
     var ctx = this.ctx;
     var data = this.opts.data;
     var W = this._W, H = this._H;
@@ -635,6 +705,56 @@
 
       drawCol(hoverCol);
     }
+
+    // 阶段 3：单 cell hover 高亮（量/额格子悬浮）→ 白底 + 橙色框 + 重画字
+    if (this._hoverCell) {
+      var hc = this._hoverCell;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(hc.x, hc.y, hc.w, hc.h);
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(hc.x + 0.5, hc.y + 0.5, hc.w - 1, hc.h - 1);
+      // 重画文字（保留选中态颜色）
+      ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      var raw, txt;
+      if (hc.col === 'amount') {
+        raw = data.amount[hc.idx];
+        txt = fmtNum(raw == null ? null : raw / 1e8, dpA);
+      } else {
+        raw = data.volume[hc.idx];
+        txt = fmtNum(raw == null ? null : raw / volUnit, dpV);
+      }
+      var hSelected = (_calcDraftSet && _calcDraftSet.has(hc.key)) ||
+                      (_calcSavedSet && _calcSavedSet.has(hc.key));
+      ctx.fillStyle = hSelected ? COLOR_CALC : COLOR_TEXT;
+      ctx.fillText(txt, hc.x + hc.w / 2, hc.y + this._rowH - 2);
+    }
+
+    // 阶段 4：拖框 → 虚线橙色矩形 + 框内每个 cell 加橙色实线边框
+    if (this._drag && this._drag.moved) {
+      var d = this._drag;
+      var dx0 = Math.min(d.x0, d.x1), dx1 = Math.max(d.x0, d.x1);
+      var dy0 = Math.min(d.y0, d.y1), dy1 = Math.max(d.y0, d.y1);
+      // 框内每个 cell 高亮
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1.5;
+      for (var ci = 0; ci < this._cellHits.length; ci++) {
+        var hh = this._cellHits[ci];
+        var ccx = hh.x + hh.w / 2;
+        var ccy = hh.y + hh.h / 2;
+        if (ccx >= dx0 && ccx <= dx1 && ccy >= dy0 && ccy <= dy1) {
+          ctx.strokeRect(hh.x + 0.5, hh.y + 0.5, hh.w - 1, hh.h - 1);
+        }
+      }
+      // 虚线大框
+      ctx.save();
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(dx0 + 0.5, dy0 + 0.5, dx1 - dx0 - 1, dy1 - dy0 - 1);
+      ctx.restore();
+    }
   };
 
   YcctChart.prototype._drawAverageTable = function (markers) {
@@ -808,6 +928,26 @@
       var rect = canvas.getBoundingClientRect();
       var px = e.clientX - rect.left;
       var py = e.clientY - rect.top;
+
+      // 拖框选中
+      if (self._drag) {
+        self._drag.x1 = px; self._drag.y1 = py;
+        if (Math.abs(px - self._drag.x0) + Math.abs(py - self._drag.y0) > 3) self._drag.moved = true;
+        self.draw();
+        return;
+      }
+
+      // cell hover
+      var cell = self.getCellAt(px, py);
+      var prevKey = self._hoverCell && self._hoverCell.key;
+      var nextKey = cell && cell.key;
+      if (prevKey !== nextKey) {
+        self._hoverCell = cell;
+        self.draw();
+        return;
+      }
+
+      // 折线柱列悬停
       if (py < self._chartTop || py > self._chartBottom) {
         if (self.hoverIdx !== -1) { self.hoverIdx = -1; self.draw(); }
         return;
@@ -818,7 +958,54 @@
 
     on('mouseleave', function () {
       if (self._destroyed) return;
-      if (self.hoverIdx !== -1) { self.hoverIdx = -1; self.draw(); }
+      self.hoverIdx = -1;
+      self._hoverCell = null;
+      if (self._drag) self._drag = null;
+      self.draw();
+    });
+
+    on('mousedown', function (e) {
+      if (self._destroyed) return;
+      if (e.button !== 0) return;
+      if (!self.opts.calcModeEnabled) return;
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      var py = e.clientY - rect.top;
+      // 在标注表区域才启动拖框
+      if (!self._sec1H || py < self._sec1Top || py > self._sec1Top + self._sec1H) return;
+      self._drag = { active: true, moved: false, x0: px, y0: py, x1: px, y1: py };
+    });
+
+    on('mouseup', function (e) {
+      if (self._destroyed) return;
+      if (!self._drag) return;
+      var d = self._drag;
+      self._drag = null;
+      if (!d.moved) { self.draw(); return; }
+      var x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1);
+      var y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
+      var hits = [];
+      var rect = canvas.getBoundingClientRect();
+      for (var i = 0; i < (self._cellHits || []).length; i++) {
+        var h = self._cellHits[i];
+        var cx = h.x + h.w / 2;
+        var cy = h.y + h.h / 2;
+        if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) {
+          hits.push(Object.assign({}, h, {
+            screen: {
+              left: rect.left + h.x, top: rect.top + h.y,
+              right: rect.left + h.x + h.w, bottom: rect.top + h.y + h.h
+            }
+          }));
+        }
+      }
+      self.draw();
+      if (hits.length === 0) return;
+      var anchor = {
+        left: rect.left + x1, top: rect.top + y0,
+        right: rect.left + x1, bottom: rect.top + y1
+      };
+      if (self.opts.onCellRangeSelect) self.opts.onCellRangeSelect(hits, anchor);
     });
 
     on('dblclick', function (e) {
@@ -965,6 +1152,7 @@
     var ticks = this.opts.ticks;
     if (!ticks || ticks.length === 0) return;
     this._layout();
+    this._cellHits = [];
     var ctx = this.ctx;
     var W = this._W, H = this._H;
 
@@ -1233,6 +1421,46 @@
 
       // 在白底上重画该列文字（颜色不变，已足够清晰）
       drawCol(hoverCol);
+    }
+
+    // 阶段 3：单 cell hover 高亮（量/额格子悬浮）
+    if (this._hoverCell) {
+      var hc = this._hoverCell;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(hc.x, hc.y, hc.w, hc.h);
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(hc.x + 0.5, hc.y + 0.5, hc.w - 1, hc.h - 1);
+      ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      var hcVal = hc.value;
+      var hcSelected = (_calcDraftSet && _calcDraftSet.has(hc.key)) ||
+                       (_calcSavedSet && _calcSavedSet.has(hc.key));
+      ctx.fillStyle = hcSelected ? COLOR_CALC : COLOR_TEXT;
+      ctx.fillText(formatCount(hcVal), hc.x + hc.w / 2, hc.y + this._rowH - 2);
+    }
+
+    // 阶段 4：拖框 → 虚线橙色矩形 + 框内 cell 边框
+    if (this._drag && this._drag.moved) {
+      var dd = this._drag;
+      var dx0 = Math.min(dd.x0, dd.x1), dx1 = Math.max(dd.x0, dd.x1);
+      var dy0 = Math.min(dd.y0, dd.y1), dy1 = Math.max(dd.y0, dd.y1);
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1.5;
+      for (var ci = 0; ci < this._cellHits.length; ci++) {
+        var hh = this._cellHits[ci];
+        var ccx = hh.x + hh.w / 2;
+        var ccy = hh.y + hh.h / 2;
+        if (ccx >= dx0 && ccx <= dx1 && ccy >= dy0 && ccy <= dy1) {
+          ctx.strokeRect(hh.x + 0.5, hh.y + 0.5, hh.w - 1, hh.h - 1);
+        }
+      }
+      ctx.save();
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(dx0 + 0.5, dy0 + 0.5, dx1 - dx0 - 1, dy1 - dy0 - 1);
+      ctx.restore();
     }
   };
 

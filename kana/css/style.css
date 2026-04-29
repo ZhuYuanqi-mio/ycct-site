@@ -792,7 +792,7 @@ input.fs-input:focus {
   color: var(--text-4);
 }
 
-/* ================== Calc 草稿浮框（双击量/额格子时浮现） ================== */
+/* ================== Calc 草稿浮框（双击 / 拖框时浮现） ================== */
 .calc-float {
   position: fixed;
   z-index: 90;
@@ -805,6 +805,12 @@ input.fs-input:focus {
   font-size: 12px;
   pointer-events: auto;
   animation: cfPop 0.12s ease-out;
+}
+.calc-float .cf-block + .cf-divider + .cf-block { margin-top: 0; }
+.calc-float .cf-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px -12px;
 }
 @keyframes cfPop {
   from { opacity: 0; transform: translateY(2px) scale(0.96); }
