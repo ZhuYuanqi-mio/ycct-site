@@ -723,20 +723,6 @@
     });
   }
 
-  function downloadPNG() {
-    if (!state.chart) return toast('请先选择股票');
-    var canvas = document.getElementById('cv');
-    if (!canvas) return;
-    var url = canvas.toDataURL('image/png');
-    var a = document.createElement('a');
-    var name = (state.klineData.name || 'chart') + '_' +
-      (state.klineData.code || '') + '_' +
-      new Date().toISOString().slice(0, 10) + '.png';
-    a.href = url;
-    a.download = name;
-    a.click();
-  }
-
   // ==================================================================
   // ============== 量/额累加计算（Calc panel）=========================
   // ==================================================================
@@ -1116,9 +1102,6 @@
 
     els.calcMode.addEventListener('change', function () {
       state.calc.mode = els.calcMode.checked;
-      els.calcModeHint.textContent = state.calc.mode
-        ? '已开启 · 双击图下「量/额」格子累加；同列只能加同一类'
-        : '关闭中 · 打开开关后双击图下「量/额」格子累加';
       // 关闭时丢弃所有未保存草稿，避免误以为还在累加
       if (!state.calc.mode) {
         state.calc.dailyDraft = null;
@@ -1220,7 +1203,6 @@
     els.btnZoomIn = document.getElementById('btnZoomIn');     // -（少看 1 天）
     els.btnZoomOut = document.getElementById('btnZoomOut');   // +（多看 1 天）
     els.viewSizeVal = document.getElementById('viewSizeVal');
-    els.btnDownload = document.getElementById('btnDownload');
 
     els.showAvg = document.getElementById('showAvg');
     els.dpPrice = document.getElementById('dpPrice');
@@ -1257,7 +1239,6 @@
     // 计算面板
     els.calcSec = document.getElementById('calcSec');
     els.calcMode = document.getElementById('calcMode');
-    els.calcModeHint = document.getElementById('calcModeHint');
     els.calcDailyTable = document.getElementById('calcDailyTable');
     els.calcDailyEmpty = document.getElementById('calcDailyEmpty');
     els.calcIntradayTable = document.getElementById('calcIntradayTable');
@@ -1288,7 +1269,6 @@
     els.btnZoomOut.addEventListener('click', function () {
       if (state.chart) state.chart.zoomBy(1);    // 多看 1 天
     });
-    els.btnDownload.addEventListener('click', downloadPNG);
 
     els.showAvg.addEventListener('change', refreshChartOnly);
     els.dpPrice.addEventListener('input', refreshChartOnly);
