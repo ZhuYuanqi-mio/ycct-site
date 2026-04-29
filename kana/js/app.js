@@ -1483,12 +1483,13 @@
     if (state.intraday.open && state.intraday.dayIdx >= 0) {
       defaultIdx = state.intraday.dayIdx;
     }
-    var html = '';
-    for (var i = dates.length - 1; i >= 0; i--) {
-      html += '<option value="' + i + '">' + dates[i] + '</option>';
+    els.intervalDate.min = dates[0];
+    els.intervalDate.max = dates[dates.length - 1];
+    els.intervalDate.value = dates[defaultIdx];
+    if (els.intervalDateHint) {
+      els.intervalDateHint.textContent =
+        '（可直接键入；数据范围 ' + dates[0] + ' ~ ' + dates[dates.length - 1] + '）';
     }
-    els.intervalDate.innerHTML = html;
-    els.intervalDate.value = String(defaultIdx);
     els.intervalStart.value = '09:30';
     els.intervalEnd.value = '11:30';
     els.intervalTitle.value = '';
@@ -1525,13 +1526,33 @@
   }
 
   function recalcInterval() {
-    var dayIdx = parseInt(els.intervalDate.value, 10);
-    if (!isFinite(dayIdx)) return;
+    var dates = state.klineData && state.klineData.dates;
+    if (!dates || dates.length === 0) return;
+    var dateStr = els.intervalDate.value || '';
+    // 输入未完成（年份还没填够 4 位 / 异常）→ 等下次
+    if (dateStr.length !== 10) return;
+    var y = parseInt(dateStr.slice(0, 4), 10);
+    if (!(y >= 1990 && y <= 2999)) return;
+
+    // 反查在 dates 数组中的索引；非交易日自动 fallback 到 ≤ dateStr 的最大日期
+    var dayIdx = dates.indexOf(dateStr);
+    var fallback = false;
+    if (dayIdx < 0) {
+      for (var i = dates.length - 1; i >= 0; i--) {
+        if (dates[i] <= dateStr) { dayIdx = i; break; }
+      }
+      if (dayIdx < 0) dayIdx = 0;   // 输入早于第一天 → 取第一天
+      fallback = true;
+      // 把输入框矫正到生效日期，便于用户看到
+      els.intervalDate.value = dates[dayIdx];
+    }
+
     var startT = els.intervalStart.value || '09:30';
     var endT = els.intervalEnd.value || '15:00';
     if (startT > endT) { var tmp = startT; startT = endT; endT = tmp; }
     els.intervalResultValue.textContent = '加载中 …';
-    els.intervalResultMeta.textContent = state.klineData.dates[dayIdx] + '  ' + startT + ' ~ ' + endT;
+    els.intervalResultMeta.textContent = dates[dayIdx] + '  ' + startT + ' ~ ' + endT +
+      (fallback ? '（非交易日，已自动取就近）' : '');
     _fetchTicksForDayIdx(dayIdx).then(function (ticks) {
       if (!ticks || ticks.length === 0) {
         els.intervalResultValue.textContent = '无数据';
@@ -1722,6 +1743,7 @@
     els.btnIntervalCalc = document.getElementById('btnIntervalCalc');
     els.intervalModalMask = document.getElementById('intervalModalMask');
     els.intervalDate = document.getElementById('intervalDate');
+    els.intervalDateHint = document.getElementById('intervalDateHint');
     els.intervalStart = document.getElementById('intervalStart');
     els.intervalEnd = document.getElementById('intervalEnd');
     els.intervalResultValue = document.getElementById('intervalResultValue');

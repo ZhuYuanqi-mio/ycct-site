@@ -674,7 +674,7 @@ input.date-input:focus { border-color: var(--orange); background: #fff7ed; }
 
 /* 「按区间累加」弹窗 */
 .interval-modal { min-width: 360px; }
-.interval-date-select {
+.interval-date-input {
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border);
@@ -682,6 +682,13 @@ input.date-input:focus { border-color: var(--orange); background: #fff7ed; }
   font: inherit;
   background: var(--bg-input);
   color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.interval-date-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 4px;
 }
 .interval-time-row {
   display: flex;
