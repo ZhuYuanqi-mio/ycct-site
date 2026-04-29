@@ -1781,13 +1781,32 @@
     ctx.lineCap = 'round';
     ctx.beginPath();
     var moved = false;
+    var firstIdxWithP = -1, lastIdxWithP = -1;
     for (var j = 0; j < ticks.length; j++) {
       if (ticks[j].p == null) continue;
+      if (firstIdxWithP < 0) firstIdxWithP = j;
+      lastIdxWithP = j;
       var xx = xOfIdx(j), yy = yOfPrice(ticks[j].p);
       if (!moved) { ctx.moveTo(xx, yy); moved = true; }
       else ctx.lineTo(xx, yy);
     }
     ctx.stroke();
+
+    // 4b) 9:30 开盘涨跌幅标签（贴在分时折线最右端的左侧）
+    if (pcRef != null && firstIdxWithP >= 0 && lastIdxWithP >= 0) {
+      var openP = ticks[firstIdxWithP].p;
+      var openPct = (openP - pcRef) / pcRef * 100;
+      var oColor = openPct > 0.005 ? '#dc2626'
+                  : (openPct < -0.005 ? '#16a34a' : '#6b7280');
+      var oText = (openPct > 0 ? '+' : '') + openPct.toFixed(2) + '%';
+      var endX = xOfIdx(lastIdxWithP);
+      var endY = yOfPrice(ticks[lastIdxWithP].p);
+      ctx.fillStyle = oColor;
+      ctx.font = '9px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(oText, endX - 4, endY);
+    }
 
     // 5) 起止橙色竖线 + 时间标签
     if (startT && endT) {
@@ -1811,6 +1830,24 @@
         ctx.moveTo(ex, padT); ctx.lineTo(ex, padT + plotH);
         ctx.stroke();
         ctx.fillText(ticks[rng[1]].t, ex, padT + plotH + 6);
+      }
+
+      // 5b) 区间涨跌幅标签（橙色区间中间最上方）
+      if (rng[0] >= 0 && rng[1] > rng[0]) {
+        var pStart = ticks[rng[0]].p;
+        var pEnd = ticks[rng[1]].p;
+        if (pStart != null && pEnd != null && pStart > 0) {
+          var rPct = (pEnd - pStart) / pStart * 100;
+          var rColor = rPct > 0.005 ? '#dc2626'
+                      : (rPct < -0.005 ? '#16a34a' : '#6b7280');
+          var rText = (rPct > 0 ? '+' : '') + rPct.toFixed(2) + '%';
+          var midX = (xOfIdx(rng[0]) + xOfIdx(rng[1])) / 2;
+          ctx.fillStyle = rColor;
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(rText, midX, padT - 1);
+        }
       }
     }
 
