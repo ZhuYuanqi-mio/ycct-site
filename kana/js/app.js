@@ -754,9 +754,8 @@
     els.btnClear = document.getElementById('btnClear');
     els.btnSelectAll = document.getElementById('btnSelectAll');
     els.btnSave = document.getElementById('btnSave');
-    els.btnViewAll = document.getElementById('btnViewAll');
-    els.btnZoomIn = document.getElementById('btnZoomIn');     // -（缩小窗口，少看 5 天）
-    els.btnZoomOut = document.getElementById('btnZoomOut');   // +（放大窗口，多看 5 天）
+    els.btnZoomIn = document.getElementById('btnZoomIn');     // -（少看 1 天）
+    els.btnZoomOut = document.getElementById('btnZoomOut');   // +（多看 1 天）
     els.viewSizeVal = document.getElementById('viewSizeVal');
     els.btnDownload = document.getElementById('btnDownload');
 
@@ -811,14 +810,11 @@
     els.btnClear.addEventListener('click', clearMarkers);
     els.btnSelectAll.addEventListener('click', selectAllMarkers);
     els.btnSave.addEventListener('click', saveMarkers);
-    els.btnViewAll.addEventListener('click', function () {
-      if (state.chart) state.chart.viewAll();
-    });
     els.btnZoomIn.addEventListener('click', function () {
-      if (state.chart) state.chart.zoomBy(-5);   // 减小视窗（少看 5 天）
+      if (state.chart) state.chart.zoomBy(-1);   // 少看 1 天
     });
     els.btnZoomOut.addEventListener('click', function () {
-      if (state.chart) state.chart.zoomBy(5);    // 放大视窗（多看 5 天）
+      if (state.chart) state.chart.zoomBy(1);    // 多看 1 天
     });
     els.btnDownload.addEventListener('click', downloadPNG);
 
