@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>股票日K线标注分析</title>
-  <link rel="stylesheet" href="css/style.css?v=20260429g">
+  <link rel="stylesheet" href="css/style.css?v=20260429h">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Crect x='17' y='14' width='8' height='36' fill='%23ef4444'/%3E%3Crect x='39' y='22' width='8' height='28' fill='none' stroke='%23ef4444' stroke-width='2'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -278,29 +278,40 @@
 <!-- 按区间累加成交额 弹窗 -->
 <div class="modal-mask" id="intervalModalMask">
   <div class="modal interval-modal">
-    <h3>按区间累加成交额</h3>
-    <label>日期 <span class="interval-date-hint" id="intervalDateHint">（可直接键入 2024-01-01）</span></label>
-    <input type="date" id="intervalDate" class="interval-date-input">
-    <div class="interval-time-row">
-      <div class="interval-time-col">
-        <label>开始时间</label>
-        <input type="time" id="intervalStart" value="09:30" step="60">
+    <div class="interval-modal-left">
+      <h3>按区间累加成交额</h3>
+      <label>日期 <span class="interval-date-hint" id="intervalDateHint">（可直接键入 2024-01-01）</span></label>
+      <input type="date" id="intervalDate" class="interval-date-input">
+      <div class="interval-time-row">
+        <div class="interval-time-col">
+          <label>开始时间</label>
+          <input type="time" id="intervalStart" value="09:30" step="60">
+        </div>
+        <div class="interval-time-col">
+          <label>截止时间</label>
+          <input type="time" id="intervalEnd" value="11:30" step="60">
+        </div>
       </div>
-      <div class="interval-time-col">
-        <label>截止时间</label>
-        <input type="time" id="intervalEnd" value="11:30" step="60">
+      <div class="interval-result">
+        <div class="interval-result-label">区间成交额</div>
+        <div class="interval-result-value" id="intervalResultValue">—</div>
+        <div class="interval-result-meta" id="intervalResultMeta">选择日期 / 时间后自动计算</div>
+      </div>
+      <label>标题（可选）</label>
+      <input type="text" id="intervalTitle" placeholder="例：开盘 30 分钟 / 尾盘半小时" maxlength="40">
+      <div class="modal-actions">
+        <button class="btn" id="intervalCancel" type="button">取消</button>
+        <button class="btn btn-primary" id="intervalSubmit" type="button">保存到分时计算</button>
       </div>
     </div>
-    <div class="interval-result">
-      <div class="interval-result-label">区间成交额</div>
-      <div class="interval-result-value" id="intervalResultValue">—</div>
-      <div class="interval-result-meta" id="intervalResultMeta">选择日期 / 时间后自动计算</div>
-    </div>
-    <label>标题（可选）</label>
-    <input type="text" id="intervalTitle" placeholder="例：开盘 30 分钟 / 尾盘半小时" maxlength="40">
-    <div class="modal-actions">
-      <button class="btn" id="intervalCancel" type="button">取消</button>
-      <button class="btn btn-primary" id="intervalSubmit" type="button">保存到分时计算</button>
+    <div class="interval-modal-right">
+      <div class="interval-chart-title">分时走势 <span class="interval-chart-legend">
+        <span class="lg-bar"></span>当前选中区间
+      </span></div>
+      <div class="interval-chart-wrap" id="intervalChartWrap">
+        <canvas id="intervalChart"></canvas>
+        <div class="interval-chart-empty" id="intervalChartEmpty">选择日期后显示分时走势</div>
+      </div>
     </div>
   </div>
 </div>
@@ -322,9 +333,9 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=20260429g"></script>
-<script src="js/zion.js?v=20260429g"></script>
-<script src="js/chart.js?v=20260429g"></script>
-<script src="js/app.js?v=20260429g"></script>
+<script src="config.js?v=20260429h"></script>
+<script src="js/zion.js?v=20260429h"></script>
+<script src="js/chart.js?v=20260429h"></script>
+<script src="js/app.js?v=20260429h"></script>
 </body>
 </html>
