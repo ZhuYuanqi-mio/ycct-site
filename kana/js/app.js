@@ -524,6 +524,7 @@
 
   function renderMarkerTags() {
     var c = els.markerTags;
+    if (!c) return; // 标注 chip 区域已被移除（双击/右键已能管理标注）
     if (!state.klineData || state.markers.length === 0) {
       c.innerHTML = '';
       return;
@@ -740,7 +741,7 @@
     els.loadingOverlay.classList.remove('show');
   }
   function showStatus(msg) {
-    els.status.textContent = msg || '';
+    if (els.status) els.status.textContent = msg || '';
   }
 
   // ============== Init ==============
