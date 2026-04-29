@@ -56,17 +56,23 @@
     <symbol id="icon-arrow-right" viewBox="0 0 16 16">
       <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 16 16">
+      <path d="M3 6l5 5 5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
   </defs>
 </svg>
 
 <div class="header">
   <span class="header-logo">🌿</span>
   <h1>股票日K线标注分析</h1>
-  <div class="header-right">
-    <span id="zionStatus" class="zion-status">
-      <span class="dot"></span>
-      <span class="zion-status-text">检查 Zion 中</span>
-    </span>
+
+  <!-- 手机端「切换股票」下拉（桌面端隐藏；左侧栏已承担此功能） -->
+  <div class="header-stock-switcher" id="mobileStockSwitcher">
+    <button class="header-stock-btn" id="mobileStockBtn" type="button">
+      <span class="header-stock-name" id="mobileStockName">选择股票</span>
+      <svg class="ico"><use href="#icon-chevron-down"/></svg>
+    </button>
+    <div class="header-stock-menu" id="mobileStockMenu" hidden></div>
   </div>
 </div>
 

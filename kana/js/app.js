@@ -85,6 +85,7 @@
     var list = els.stockList;
     if (state.stocks.length === 0) {
       list.innerHTML = '<div class="empty-tip">还没有股票<br>点击右上角 <b>新建</b> 开始</div>';
+      renderMobileStockMenu();
       return;
     }
     var html = '';
@@ -100,6 +101,7 @@
         '</div>';
     }
     list.innerHTML = html;
+    renderMobileStockMenu();
     // 绑定点击
     var items = list.querySelectorAll('.stock-item');
     items.forEach(function (el) {
@@ -131,6 +133,43 @@
         });
       });
     });
+  }
+
+  // ============== 顶部「切换股票」下拉（手机端可见） ==============
+  function renderMobileStockMenu() {
+    if (!els.mobileStockMenu) return;
+    // 顶部按钮文案
+    var current = null;
+    for (var k = 0; k < state.stocks.length; k++) {
+      if (state.stocks[k].id === state.activeStockId) { current = state.stocks[k]; break; }
+    }
+    if (els.mobileStockName) {
+      els.mobileStockName.textContent = current
+        ? current.name + ' (' + current.code + ')'
+        : '选择股票';
+    }
+    // 下拉项
+    if (state.stocks.length === 0) {
+      els.mobileStockMenu.innerHTML = '<div class="menu-empty">还没有股票</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < state.stocks.length; i++) {
+      var s = state.stocks[i];
+      var active = s.id === state.activeStockId ? ' active' : '';
+      html += '<div class="menu-item' + active + '" data-id="' + s.id + '">' +
+        '<span class="menu-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="menu-code">' + escapeHtml(s.code) + '</span>' +
+        '</div>';
+    }
+    els.mobileStockMenu.innerHTML = html;
+  }
+
+  function toggleMobileStockMenu(force) {
+    if (!els.mobileStockMenu) return;
+    var willShow = (typeof force === 'boolean') ? force : els.mobileStockMenu.hasAttribute('hidden');
+    if (willShow) els.mobileStockMenu.removeAttribute('hidden');
+    else els.mobileStockMenu.setAttribute('hidden', '');
   }
 
   function escapeHtml(s) {
@@ -1333,8 +1372,11 @@
     els.btnSubmit = document.getElementById('btnSubmit');
     els.btnCancel = document.getElementById('btnCancel');
 
-    els.zionStatus = document.getElementById('zionStatus');
-    els.zionStatusText = els.zionStatus.querySelector('.zion-status-text');
+    // 顶部「切换股票」下拉（手机端可见）
+    els.mobileStockSwitcher = document.getElementById('mobileStockSwitcher');
+    els.mobileStockBtn = document.getElementById('mobileStockBtn');
+    els.mobileStockName = document.getElementById('mobileStockName');
+    els.mobileStockMenu = document.getElementById('mobileStockMenu');
     els.loadingOverlay = document.getElementById('loadingOverlay');
 
     els.annotMode = document.getElementById('annotMode');
@@ -1467,6 +1509,29 @@
     });
 
     bindCalcHandlers();
+
+    // 顶部「切换股票」下拉
+    if (els.mobileStockBtn) {
+      els.mobileStockBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleMobileStockMenu();
+      });
+    }
+    if (els.mobileStockMenu) {
+      els.mobileStockMenu.addEventListener('click', function (e) {
+        var t = e.target.closest('.menu-item');
+        if (!t) return;
+        var id = +t.getAttribute('data-id');
+        toggleMobileStockMenu(false);
+        switchStock(id);
+      });
+    }
+    document.addEventListener('click', function (e) {
+      if (!els.mobileStockMenu || els.mobileStockMenu.hasAttribute('hidden')) return;
+      if (els.mobileStockSwitcher && !els.mobileStockSwitcher.contains(e.target)) {
+        toggleMobileStockMenu(false);
+      }
+    });
   }
 
   function checkConfig() {
@@ -1481,11 +1546,8 @@
     return true;
   }
 
-  function setZionStatus(cls, text) {
-    els.zionStatus.classList.remove('ok', 'err', 'demo');
-    if (cls) els.zionStatus.classList.add(cls);
-    if (els.zionStatusText) els.zionStatusText.textContent = text;
-  }
+  // 旧的右上角 Zion 状态徽标已移除；保留空函数以兼容调用点
+  function setZionStatus() { /* noop */ }
 
   function loadDemoMode() {
     state.isDemo = true;
