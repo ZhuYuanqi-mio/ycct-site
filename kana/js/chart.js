@@ -20,6 +20,7 @@
   var COLOR_TEXT_3 = '#9ca3af';
   var COLOR_GRID = '#f3f4f6';
   var COLOR_MARKER = '#ea580c';
+  var COLOR_CALC = '#dc2626';   // 被选中加入「计算」的格子文字颜色
 
   /**
    * @param {HTMLCanvasElement} canvas
@@ -455,6 +456,10 @@
     // 重置点击命中区（下面 drawCol 会按 marker 列填充）
     this._cellHits = [];
 
+    // 计算高亮键集合：被加进草稿或已保存的格子，文字会染红
+    var _calcDraftSet = this.opts.calcDraftKeys || null;
+    var _calcSavedSet = this.opts.calcSavedKeys || null;
+
     // ===== 左侧标签列 =====
     ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'right';
@@ -529,10 +534,18 @@
 
       if (rowIdxAmount >= 0) {
         var amtYi = amt == null ? null : amt / 1e8;
+        var amtKey = data.dates[idx] + '|amount';
+        var amtSelected = (_calcDraftSet && _calcDraftSet.has(amtKey)) ||
+                          (_calcSavedSet && _calcSavedSet.has(amtKey));
+        ctx.fillStyle = amtSelected ? COLOR_CALC : COLOR_TEXT;
         ctx.fillText(fmtNum(amtYi, dpA), col.x, top + rowIdxAmount * rowH + fs);
       }
       if (rowIdxVolume >= 0) {
         var volC = vol == null ? null : vol / volUnit;
+        var volKey = data.dates[idx] + '|volume';
+        var volSelected = (_calcDraftSet && _calcDraftSet.has(volKey)) ||
+                          (_calcSavedSet && _calcSavedSet.has(volKey));
+        ctx.fillStyle = volSelected ? COLOR_CALC : COLOR_TEXT;
         ctx.fillText(fmtNum(volC, dpV), col.x, top + rowIdxVolume * rowH + fs);
       }
 
@@ -556,30 +569,8 @@
       }
     }
 
-    // 阶段 1：先画所有 marker 列
+    // 阶段 1：先画所有 marker 列（量/额格子若被选入计算会自动染红）
     for (var i = 0; i < cols.length; i++) drawCol(i);
-
-    // 阶段 1.5：草稿/已保存格子描边（实线 = 草稿当前累加；虚线 = 之前已保存）
-    var draftSet = this.opts.calcDraftKeys || null;
-    var savedSet = this.opts.calcSavedKeys || null;
-    if (draftSet || savedSet) {
-      for (var ch = 0; ch < this._cellHits.length; ch++) {
-        var hit = this._cellHits[ch];
-        var inDraft = draftSet && draftSet.has(hit.key);
-        var inSaved = savedSet && savedSet.has(hit.key);
-        if (!inDraft && !inSaved) continue;
-        ctx.lineWidth = 1.5;
-        if (inDraft) {
-          ctx.strokeStyle = COLOR_MARKER;
-          ctx.setLineDash([]);
-        } else {
-          ctx.strokeStyle = 'rgba(234,88,12,0.45)';
-          ctx.setLineDash([3, 2]);
-        }
-        ctx.strokeRect(hit.x + 0.5, hit.y + 0.5, hit.w - 1, hit.h - 1);
-      }
-      ctx.setLineDash([]);
-    }
 
     // 阶段 2：hover 高亮 → 白底矩形覆盖相邻 + 重画该列 + 橙色边框
     if (hoverCol >= 0) {
@@ -1073,6 +1064,8 @@
     var labelX = this._padLeft - 8;
 
     this._cellHits = [];
+    var _calcDraftSet = this.opts.calcDraftKeys || null;
+    var _calcSavedSet = this.opts.calcSavedKeys || null;
 
     // 左侧标签列
     ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
@@ -1136,8 +1129,19 @@
       ctx.fillText(fmtPct(pct), col.x, top + rowChg * rowH + fs);
 
       ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
-      ctx.fillStyle = COLOR_TEXT;
+      var volKey = t.t + '|volume';
+      var amtKey = t.t + '|amount';
+      var volSelected = t.v != null && (
+        (_calcDraftSet && _calcDraftSet.has(volKey)) ||
+        (_calcSavedSet && _calcSavedSet.has(volKey))
+      );
+      var amtSelected = t.a != null && (
+        (_calcDraftSet && _calcDraftSet.has(amtKey)) ||
+        (_calcSavedSet && _calcSavedSet.has(amtKey))
+      );
+      ctx.fillStyle = volSelected ? COLOR_CALC : COLOR_TEXT;
       ctx.fillText(t.v != null ? formatCount(t.v) : '-', col.x, top + rowVol * rowH + fs);
+      ctx.fillStyle = amtSelected ? COLOR_CALC : COLOR_TEXT;
       ctx.fillText(t.a != null ? formatCount(t.a) : '-', col.x, top + rowAmt * rowH + fs);
 
       // 记录可点击单元格（仅 v 和 a 行有数据时才记录）
@@ -1160,30 +1164,8 @@
       }
     }
 
-    // ===== 阶段 1：先画所有 marker 列 =====
+    // ===== 阶段 1：先画所有 marker 列（被选入计算的量/额格子文字会染红） =====
     for (var i = 0; i < cols.length; i++) drawCol(i);
-
-    // ===== 阶段 1.5：草稿/已保存格子描边 =====
-    var draftSet = this.opts.calcDraftKeys || null;
-    var savedSet = this.opts.calcSavedKeys || null;
-    if (draftSet || savedSet) {
-      for (var ch = 0; ch < this._cellHits.length; ch++) {
-        var hit = this._cellHits[ch];
-        var inDraft = draftSet && draftSet.has(hit.key);
-        var inSaved = savedSet && savedSet.has(hit.key);
-        if (!inDraft && !inSaved) continue;
-        ctx.lineWidth = 1.5;
-        if (inDraft) {
-          ctx.strokeStyle = COLOR_MARKER;
-          ctx.setLineDash([]);
-        } else {
-          ctx.strokeStyle = 'rgba(234,88,12,0.45)';
-          ctx.setLineDash([3, 2]);
-        }
-        ctx.strokeRect(hit.x + 0.5, hit.y + 0.5, hit.w - 1, hit.h - 1);
-      }
-      ctx.setLineDash([]);
-    }
 
     // ===== 阶段 2：hover 高亮 —— 白底矩形覆盖相邻列 + 重画该列 + 边框 =====
     if (hoverCol >= 0) {
