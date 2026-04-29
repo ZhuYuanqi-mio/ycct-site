@@ -249,11 +249,17 @@
     // 容器宽度（适应父容器，不再横向滚动）
     var parent = this.canvas.parentElement;
     var containerW = parent ? parent.clientWidth : 1100;
-    this._W = Math.max(800, containerW - 4);
-    this._padLeft = 80;
-    this._padRight = 30;
+    var isMobile = containerW <= 768;
+    this._isMobile = isMobile;
+    this._W = isMobile
+      ? Math.max(320, containerW - 4)   // 手机：跟容器走，保证 100% 宽
+      : Math.max(800, containerW - 4);   // 桌面：保最小 800
+    this._padLeft = isMobile ? 44 : 80;
+    this._padRight = isMobile ? 12 : 30;
     this._padTop = 38;
     this._plotW = this._W - this._padLeft - this._padRight;
+    // 手机端：canvas 不画底部标注表（由 HTML 网格替代）
+    this._hideMarkerTable = isMobile || !!this.opts.hideMarkerTable;
 
     // 行高、表格区
     this._rowH = Math.max(14, fs + 6);
@@ -269,18 +275,18 @@
     var sec1Rows = 1 + (this._hasChange ? 1 : 0) + 1 + (hasAmount ? 1 : 0) + (hasVolume ? 1 : 0);
     var sec2Rows = hasAvg ? sec1Rows : 0;
 
-    this._sec1H = hasMarkers ? sec1Rows * this._rowH + 8 : 0;
-    this._sec2H = hasAvg ? sec2Rows * this._rowH + 16 : 0;
+    this._sec1H = (hasMarkers && !this._hideMarkerTable) ? sec1Rows * this._rowH + 8 : 0;
+    this._sec2H = (hasAvg && !this._hideMarkerTable) ? sec2Rows * this._rowH + 16 : 0;
 
     this._chartTop = this._padTop;
-    this._plotH = 460;
+    this._plotH = this._isMobile ? 320 : 460;
     this._chartBottom = this._chartTop + this._plotH;
 
     this._sec1Top = this._chartBottom + 24;
     this._sec2Top = this._sec1Top + this._sec1H;
 
     var totalH = this._sec2Top + this._sec2H + 24;
-    this._H = Math.max(560, totalH);
+    this._H = Math.max(this._isMobile ? 380 : 560, totalH);
 
     // 物理像素
     var dpr = global.devicePixelRatio || 1;
@@ -425,11 +431,11 @@
 
     // ---- 底部数据表（只显示 view 内的 marker） ----
     var visMarkers = markersSorted.filter(this._isInView, this);
-    if (visMarkers.length > 0) {
+    if (visMarkers.length > 0 && !this._hideMarkerTable) {
       this._drawMarkerTable(visMarkers);
     }
     // 平均区间表（只画两端都在 view 内的区间）
-    if (visMarkers.length >= 2 && this.opts.showAverages) {
+    if (visMarkers.length >= 2 && this.opts.showAverages && !this._hideMarkerTable) {
       this._drawAverageTable(visMarkers);
     }
   };

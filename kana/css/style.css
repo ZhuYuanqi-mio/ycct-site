@@ -1178,6 +1178,87 @@ input[type=file].hidden-file { display: none; }
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(17, 24, 39, .22); }
 
+/* ================== 标注网格（手机端替代 canvas 底部标注表） ================== */
+.marker-grid {
+  display: none;
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.marker-grid .mg-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.marker-grid .mg-cell {
+  padding: 6px 4px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marker-grid .mg-cell:nth-child(4n) { border-right: 0; }
+.marker-grid .mg-row-date  .mg-cell { background: var(--bg-input); color: var(--text-3); font-size: 11px; }
+.marker-grid .mg-row-price .mg-cell { background: #fff; color: var(--text-1); font-weight: 600; }
+.marker-grid .mg-row-amt   .mg-cell { background: #fff; color: var(--text-2); font-size: 11px; border-bottom: 0; }
+.marker-grid .mg-empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--text-4);
+  font-size: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+/* ================== 标注网格（手机端替代 canvas 内底部表） ================== */
+.marker-grid { display: none; }       /* 桌面默认隐藏 */
+.marker-grid .mg-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 10px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.marker-grid .mg-row {
+  display: contents;
+}
+.marker-grid .mg-cell {
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marker-grid .mg-row.mg-row-date .mg-cell {
+  background: var(--bg-input);
+  font-weight: 600;
+  color: var(--text-2);
+  font-size: 11px;
+}
+.marker-grid .mg-row.mg-row-price .mg-cell {
+  font-weight: 600;
+  color: var(--text-1);
+}
+.marker-grid .mg-row.mg-row-amount .mg-cell {
+  color: var(--text-3);
+  font-size: 11px;
+  border-bottom: 0;
+}
+.marker-grid .mg-cell:nth-child(4n) { border-right: 0; }
+
 /* ================== 手机端适配（≤ 768px） ================== */
 @media (max-width: 768px) {
   /* 左侧栏隐藏（用顶部下拉切换股票） */
@@ -1201,6 +1282,18 @@ input[type=file].hidden-file { display: none; }
 
   /* 区间数据表水平滚动 */
   #intervalSec { overflow-x: auto; }
+
+  /* K 线 canvas 强制 100% 宽 */
+  #chartWrap { overflow: hidden; }
+  #chartWrap canvas { width: 100% !important; max-width: 100%; display: block; }
+
+  /* 标注网格显示（替代 canvas 内底部标注表） */
+  .marker-grid { display: block; }
+
+  /* 分页栏在小屏更紧凑 */
+  .pager { gap: 4px; }
+  .pager-btn { padding: 4px 6px; font-size: 11px; }
+  .pager-info { font-size: 11px; }
 
   /* 分时浮窗在手机上占满 */
   .intraday-popout {

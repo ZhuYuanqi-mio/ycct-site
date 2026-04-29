@@ -342,6 +342,7 @@
     updateViewInfo(state.chart.getViewInfo());
     bindPagerHandlers();
     renderIntervalTable();
+    renderMarkerGrid();
   }
 
   function bindPagerHandlers() {
@@ -390,6 +391,9 @@
     if (state.activeStockId != null) {
       state.viewByStock[state.activeStockId] = { start: info.start, end: info.end };
     }
+
+    // 手机端标注网格也要随视窗刷新
+    renderMarkerGrid();
   }
 
   function onDayChartDblclick(idx) {
@@ -407,6 +411,7 @@
     state.chart.update({ markers: state.markers });
     renderMarkerTags();
     renderIntervalTable();
+    renderMarkerGrid();
   }
 
   // ============== 分时图浮窗 ==============
@@ -625,8 +630,61 @@
         state.chart.update({ markers: state.markers });
         renderMarkerTags();
         renderIntervalTable();
+        renderMarkerGrid();
       });
     });
+  }
+
+  // 手机端标注网格：4 列网格（日期/价格/成交额），按时间从左到右、从上到下
+  function renderMarkerGrid() {
+    if (!els.markerGrid) return;
+    if (!state.klineData || !state.markers || state.markers.length === 0) {
+      els.markerGrid.innerHTML = '';
+      return;
+    }
+    var data = state.klineData;
+    var dp = readDp();
+    // 优先取视窗内的；如果 chart 还没就绪，则全部
+    var info = state.chart ? state.chart.getViewInfo() : null;
+    var idxs = state.markers.slice().sort(function (a, b) { return a - b; });
+    if (info) {
+      idxs = idxs.filter(function (i) { return i >= info.start && i <= info.end; });
+    }
+    if (idxs.length === 0) { els.markerGrid.innerHTML = ''; return; }
+
+    var COLS = 4;
+    var html = '';
+    for (var g = 0; g < idxs.length; g += COLS) {
+      var grp = idxs.slice(g, g + COLS);
+      html += '<div class="mg-group">';
+      // 日期行（mmDD）
+      html += '<div class="mg-row mg-row-date">';
+      for (var i = 0; i < grp.length; i++) {
+        var d = data.dates[grp[i]] || '';
+        html += '<span class="mg-cell">' + escapeHtml(d.slice(5).replace('-', '')) + '</span>';
+      }
+      // 占位补满 4 列（保持网格对齐）
+      for (var p = grp.length; p < COLS; p++) html += '<span class="mg-cell"></span>';
+      html += '</div>';
+      // 价格行
+      html += '<div class="mg-row mg-row-price">';
+      for (i = 0; i < grp.length; i++) {
+        var pr = data.close[grp[i]];
+        html += '<span class="mg-cell">' + (pr == null ? '-' : Number(pr).toFixed(dp.dpPrice)) + '</span>';
+      }
+      for (p = grp.length; p < COLS; p++) html += '<span class="mg-cell"></span>';
+      html += '</div>';
+      // 成交额行（按 volUnit 换算）
+      html += '<div class="mg-row mg-row-amount">';
+      for (i = 0; i < grp.length; i++) {
+        var a = data.amount && data.amount[grp[i]];
+        html += '<span class="mg-cell">' + (a == null ? '-' : (a / dp.volUnit).toFixed(dp.dpAmount)) + '</span>';
+      }
+      for (p = grp.length; p < COLS; p++) html += '<span class="mg-cell"></span>';
+      html += '</div>';
+      html += '</div>';
+    }
+    els.markerGrid.innerHTML = html;
   }
 
   function renderIntervalTable() {
@@ -724,6 +782,7 @@
       state.chart.update(readDp());
       state.chart.update({ showAverages: els.showAvg.checked });
     }
+    renderMarkerGrid();
   }
 
   function clearMarkers() {
@@ -731,6 +790,7 @@
     if (state.chart) state.chart.update({ markers: [] });
     renderMarkerTags();
     renderIntervalTable();
+    renderMarkerGrid();
   }
 
   function selectAllMarkers() {
@@ -739,6 +799,7 @@
     if (state.chart) state.chart.update({ markers: state.markers });
     renderMarkerTags();
     renderIntervalTable();
+    renderMarkerGrid();
   }
 
   function saveMarkers() {
@@ -1345,6 +1406,7 @@
     els.stockList = document.getElementById('stockList');
     els.btnAddStock = document.getElementById('btnAddStock');
     els.chartWrap = document.getElementById('chartWrap');
+    els.markerGrid = document.getElementById('markerGrid');
     els.intervalSec = document.getElementById('intervalSec');
     els.markerTags = document.getElementById('markerTags');
     els.status = document.getElementById('status');
@@ -1506,6 +1568,7 @@
     window.addEventListener('resize', function () {
       if (state.chart) state.chart.draw();
       if (state.intraday.open && state.intraday.chart) state.intraday.chart.draw();
+      renderMarkerGrid();
     });
 
     bindCalcHandlers();
