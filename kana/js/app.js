@@ -1662,27 +1662,38 @@
     }
     if (els.intervalChartEmpty) els.intervalChartEmpty.style.display = 'none';
 
-    var padL = 56, padR = 14, padT = 14, padB = 24;
+    // 同花顺风格：左侧价格、右侧百分比，所以 padR 留宽
+    var padL = 56, padR = 52, padT = 14, padB = 24;
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     if (plotW <= 0 || plotH <= 0) return;
 
-    // 价格区间：包含 prevClose 昨收（与 IntradayChart 一致）
-    var lo = Infinity, hi = -Infinity;
+    // 价格区间：同花顺式 —— 以昨收为中轴对称
+    // 振幅 amp = max(|today_high - prevClose|, |prevClose - today_low|)
+    var rawLo = Infinity, rawHi = -Infinity;
     for (var i = 0; i < ticks.length; i++) {
       var p = ticks[i].p;
       if (p == null) continue;
-      if (p < lo) lo = p;
-      if (p > hi) hi = p;
+      if (p < rawLo) rawLo = p;
+      if (p > rawHi) rawHi = p;
     }
-    if (prevClose != null && isFinite(prevClose)) {
-      if (prevClose < lo) lo = prevClose;
-      if (prevClose > hi) hi = prevClose;
+    if (!isFinite(rawLo)) return;
+
+    var lo, hi, span, pcRef = null;
+    if (prevClose != null && isFinite(prevClose) && prevClose > 0) {
+      pcRef = prevClose;
+      var amp = Math.max(Math.abs(rawHi - prevClose), Math.abs(prevClose - rawLo));
+      if (!(amp > 0)) amp = prevClose * 0.005 || 0.02;
+      amp *= 1.06;
+      lo = prevClose - amp;
+      hi = prevClose + amp;
+      span = hi - lo;
+    } else {
+      // 无昨收时，退化为普通自适应
+      var pad = (rawHi - rawLo) * 0.08 || (rawLo * 0.005) || 0.02;
+      lo = rawLo - pad; hi = rawHi + pad;
+      span = (hi - lo) || 1;
     }
-    if (!isFinite(lo)) return;
-    var pad = (hi - lo) * 0.08 || (lo * 0.005) || 0.02;
-    lo -= pad; hi += pad;
-    var span = (hi - lo) || 1;
 
     function xOfIdx(i) {
       if (ticks.length <= 1) return padL + plotW / 2;
@@ -1713,39 +1724,61 @@
       }
     }
 
-    // 2) Y 网格 + 价格刻度（5 档）
+    // 2) Y 网格 + 双轴刻度
+    //    左轴：价格（涨红、跌绿、中线 = 昨收 用灰）
+    //    右轴：相对昨收的百分比（涨红、跌绿、中线 0.00% 用灰）
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
-    for (var k = 0; k <= 4; k++) {
-      var gy = padT + plotH * k / 4;
-      var gv = hi - span * k / 4;
+    var GRID_N = 4;
+    for (var k = 0; k <= GRID_N; k++) {
+      var gy = padT + plotH * k / GRID_N;
+      var gv = hi - span * k / GRID_N;
+      // 网格横线
       ctx.strokeStyle = '#e5e7eb';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(padL, gy);
       ctx.lineTo(W - padR, gy);
       ctx.stroke();
-      ctx.fillStyle = '#9ca3af';
+      // 价格 / 百分比标签颜色：涨红 / 跌绿 / 平灰
+      var color = '#9ca3af';
+      var pctText = '';
+      if (pcRef != null) {
+        var diff = gv - pcRef;
+        var pct = diff / pcRef * 100;
+        if (Math.abs(pct) < 0.005) {
+          color = '#6b7280';
+          pctText = '0.00%';
+        } else if (pct > 0) {
+          color = '#dc2626';
+          pctText = '+' + pct.toFixed(2) + '%';
+        } else {
+          color = '#16a34a';
+          pctText = pct.toFixed(2) + '%';
+        }
+      }
+      // 左侧价格
+      ctx.fillStyle = color;
       ctx.textAlign = 'right';
       ctx.fillText(gv.toFixed(2), padL - 6, gy + 0.5);
+      // 右侧百分比
+      if (pctText) {
+        ctx.textAlign = 'left';
+        ctx.fillText(pctText, W - padR + 6, gy + 0.5);
+      }
     }
 
-    // 3) 昨收水平参考线（虚线）
-    if (prevClose != null && isFinite(prevClose)) {
-      var yPC = yOfPrice(prevClose);
+    // 3) 昨收水平参考线（虚线，加粗一点点更易识别）
+    if (pcRef != null) {
+      var yPC = yOfPrice(pcRef);
       ctx.strokeStyle = '#9ca3af';
-      ctx.setLineDash([3, 3]);
+      ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(padL, yPC);
       ctx.lineTo(W - padR, yPC);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '9px -apple-system, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('昨收 ' + prevClose.toFixed(2), padL + 4, yPC - 2);
     }
 
     // 4) 蓝色分时折线（与 IntradayChart 一致：#2563eb，无面积填充）
