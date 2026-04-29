@@ -122,6 +122,51 @@
   }
 
   /**
+   * 保存一条量/额累加计算
+   * @param {number} stockId
+   * @param {object} payload {calc_name, calc_type:'volume'|'amount', calc_value, source:[{date,col,value}]或[{date,time,col,value}], scope:'daily'|'intraday', intraday_kline_id?}
+   * @return {Promise<number>} calc_id
+   */
+  async function saveCalc(stockId, payload) {
+    var calc = {
+      stock_id: stockId,
+      calc_name: payload.calc_name || '未命名',
+      calc_type: payload.calc_type || 'amount',
+      calc_value: Number(payload.calc_value) || 0,
+      source: payload.source || [],
+      scope: payload.scope || 'daily',
+      intraday_kline_id: payload.intraday_kline_id != null ? payload.intraday_kline_id : null
+    };
+    var r = await callWebhook(URLS.saveCalc, {
+      calc_json: JSON.stringify(calc)
+    });
+    return r.calc_id;
+  }
+
+  /**
+   * 拉取某股全部计算（日 K + 分时混在一起，前端按 scope/intraday_kline_id 过滤）
+   * @param {number} stockId
+   * @return {Promise<Array<object>>} [{id, calc_name, calc_type, calc_value, source, scope, intraday_kline_id, created_at}, ...]
+   */
+  async function listCalcs(stockId) {
+    var r = await callWebhook(URLS.listCalcs, { stock_id: stockId });
+    var raw = r.calcs_data;
+    if (!raw) return [];
+    var data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(data.calcs) ? data.calcs : [];
+  }
+
+  /**
+   * 删除一条计算
+   * @param {number} calcId
+   * @return {Promise<string>}
+   */
+  async function deleteCalc(calcId) {
+    var r = await callWebhook(URLS.deleteCalc, { calc_id: calcId });
+    return r.result;
+  }
+
+  /**
    * 健康检查（尝试调一下 list_stocks，验证 webhook 可达）
    * @return {Promise<{ok:boolean, msg:string}>}
    */
@@ -143,6 +188,9 @@
     getIntraday: getIntraday,
     saveMarkers: saveMarkers,
     getMarkers: getMarkers,
+    saveCalc: saveCalc,
+    listCalcs: listCalcs,
+    deleteCalc: deleteCalc,
     ping: ping
   };
 })(window);

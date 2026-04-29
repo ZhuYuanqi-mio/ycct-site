@@ -29,7 +29,21 @@
 
     // 视窗偏好
     defaultViewSize: 20,             // 默认显示最近 20 个交易日
-    viewByStock: {}                  // {stockId: {start, end}} 每只股票各自记忆
+    viewByStock: {},                 // {stockId: {start, end}} 每只股票各自记忆
+
+    // 量/额累加计算
+    calc: {
+      mode: false,                   // 计算开关
+      // 日 K 草稿：{type:'volume'|'amount', cells:[{date, col, value}]}
+      dailyDraft: null,
+      // 分时草稿：{type, kline_id, cells:[{date, time, col, value}]}
+      intradayDraft: null,
+      // 已保存（来自 Zion）
+      // daily 项：{id, calc_name, calc_type, calc_value, source:[{date,col,value}]}
+      // intraday 项：上面 + intraday_kline_id
+      daily: [],
+      intraday: []
+    }
   };
 
   var els = {};
@@ -155,20 +169,31 @@
     state.markers = [];
     state.klineData = null;
     state.intradayCache = {};
+    clearCalcs();
     if (state.intraday.open) closeIntraday();
     renderStockList();
     showLoading('正在加载 K 线数据...');
-    // 同时拉 K 线和标注（并行）
+    // 同时拉 K 线、标注、计算记录（并行）
     Promise.all([
       Zion.listKline(id),
       state.isDemo ? Promise.resolve(getSaved(id)) : Zion.getMarkers(id).catch(function (e) {
         console.warn('读取标注失败，忽略:', e.message);
         return { markers: [], dp: {} };
+      }),
+      state.isDemo ? Promise.resolve([]) : Zion.listCalcs(id).catch(function (e) {
+        console.warn('读取计算记录失败，忽略:', e.message);
+        return [];
       })
     ]).then(function (results) {
       hideLoading();
       var rows = results[0];
       var saved = results[1];
+      var calcs = results[2] || [];
+
+      // 分组到 daily / intraday
+      state.calc.daily = calcs.filter(function (c) { return c.scope === 'daily'; });
+      state.calc.intraday = calcs.filter(function (c) { return c.scope === 'intraday'; });
+      renderCalcTables();
 
       if (!rows || rows.length === 0) {
         state.klineData = null;
@@ -267,6 +292,9 @@
       volUnit: dpOpts.volUnit,
       fontSize: dpOpts.fontSize,
       onDblclick: onDayChartDblclick,
+      onCellDblclick: onDailyCellDblclick,
+      calcDraftKeys: getDailyDraftKeys(),
+      calcSavedKeys: getDailySavedKeys(),
       onView: updateViewInfo
     }, initOpts));
     state.chart.draw();
@@ -427,6 +455,11 @@
       state.intraday.chart.destroy();
     }
     state.intraday.chart = null;
+    // 关闭浮窗时也丢弃未保存的分时草稿（避免下次打开同一天看到一份残留草稿但失去当时上下文）
+    if (state.calc.intradayDraft) {
+      state.calc.intradayDraft = null;
+      renderCalcTables();
+    }
   }
 
   // ---------- 分时浮窗 header 拖拽 ----------
@@ -509,7 +542,10 @@
       ticks: state.intraday.ticks,
       prevClose: prevClose,
       markers: state.intraday.markers,
-      onMark: toggleIntradayMarker
+      onMark: toggleIntradayMarker,
+      onCellDblclick: onIntradayCellDblclick,
+      calcDraftKeys: getIntradayDraftKeys(),
+      calcSavedKeys: getIntradaySavedKeys()
     });
     state.intraday.chart.draw();
   }
@@ -701,6 +737,430 @@
     a.click();
   }
 
+  // ==================================================================
+  // ============== 量/额累加计算（Calc panel）=========================
+  // ==================================================================
+
+  function clearCalcs() {
+    state.calc.dailyDraft = null;
+    state.calc.intradayDraft = null;
+    state.calc.daily = [];
+    state.calc.intraday = [];
+    renderCalcTables();
+  }
+
+  function getCurrentKlineId() {
+    if (!state.intraday.open) return null;
+    var dayIdx = state.intraday.dayIdx;
+    if (dayIdx < 0 || !state.klineData || !state.klineData.klineIds) return null;
+    return state.klineData.klineIds[dayIdx] || null;
+  }
+
+  // ----- 日 K：双击量/额格子 -----
+  function onDailyCellDblclick(hit) {
+    if (!state.calc.mode) {
+      toast('请先打开「计算」开关');
+      return;
+    }
+    addToDailyDraft(hit);
+  }
+
+  function addToDailyDraft(hit) {
+    var d = state.calc.dailyDraft;
+    if (!d) {
+      d = state.calc.dailyDraft = { type: hit.col, cells: [] };
+    }
+    if (d.type !== hit.col) {
+      toast('一列只能加同一类（' + (d.type === 'volume' ? '成交量' : '成交额') + '）');
+      return;
+    }
+    var existIdx = -1;
+    for (var i = 0; i < d.cells.length; i++) {
+      if (d.cells[i].date === hit.date && d.cells[i].col === hit.col) { existIdx = i; break; }
+    }
+    if (existIdx >= 0) {
+      d.cells.splice(existIdx, 1);
+      if (d.cells.length === 0) state.calc.dailyDraft = null;
+    } else {
+      d.cells.push({ date: hit.date, col: hit.col, value: Number(hit.value) });
+      d.cells.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    }
+    refreshDailyChartCalcKeys();
+    renderCalcTables();
+  }
+
+  function cancelDailyDraft() {
+    state.calc.dailyDraft = null;
+    refreshDailyChartCalcKeys();
+    renderCalcTables();
+  }
+
+  function saveDailyDraft(name) {
+    var d = state.calc.dailyDraft;
+    if (!d || d.cells.length === 0) return;
+    if (!state.activeStockId) return toast('请先选择股票');
+    var sum = d.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
+    var payload = {
+      calc_name: (name || '').trim() || '未命名',
+      calc_type: d.type,
+      calc_value: sum,
+      source: d.cells.slice(),
+      scope: 'daily',
+      intraday_kline_id: null
+    };
+    Zion.saveCalc(state.activeStockId, payload).then(function (id) {
+      var rec = Object.assign({}, payload, { id: Number(id) });
+      state.calc.daily.push(rec);
+      state.calc.dailyDraft = null;
+      refreshDailyChartCalcKeys();
+      renderCalcTables();
+      toast('已保存：' + payload.calc_name);
+    }).catch(function (e) {
+      toast('保存失败: ' + e.message);
+      console.error(e);
+    });
+  }
+
+  function deleteDailyCalc(id) {
+    var idx = -1;
+    for (var i = 0; i < state.calc.daily.length; i++) {
+      if (state.calc.daily[i].id === id) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    if (!confirm('确定删除「' + state.calc.daily[idx].calc_name + '」？')) return;
+    Zion.deleteCalc(id).then(function () {
+      state.calc.daily.splice(idx, 1);
+      refreshDailyChartCalcKeys();
+      renderCalcTables();
+    }).catch(function (e) {
+      toast('删除失败: ' + e.message);
+    });
+  }
+
+  // ----- 分时：双击量/额格子 -----
+  function onIntradayCellDblclick(hit) {
+    if (!state.calc.mode) {
+      toast('请先打开「计算」开关');
+      return;
+    }
+    addToIntradayDraft(hit);
+  }
+
+  function addToIntradayDraft(hit) {
+    var klineId = getCurrentKlineId();
+    if (!klineId) return toast('未取到当前分时的 kline_id');
+    var dayIdx = state.intraday.dayIdx;
+    var date = state.klineData.dates[dayIdx];
+
+    var d = state.calc.intradayDraft;
+    // 如果之前的草稿绑定到别的天（用户切换了分时浮窗），自动丢弃旧草稿重开
+    if (d && d.kline_id !== klineId) d = state.calc.intradayDraft = null;
+    if (!d) {
+      d = state.calc.intradayDraft = { type: hit.col, kline_id: klineId, date: date, cells: [] };
+    }
+    if (d.type !== hit.col) {
+      toast('一列只能加同一类（' + (d.type === 'volume' ? '交易量' : '交易额') + '）');
+      return;
+    }
+    var existIdx = -1;
+    for (var i = 0; i < d.cells.length; i++) {
+      if (d.cells[i].time === hit.time && d.cells[i].col === hit.col) { existIdx = i; break; }
+    }
+    if (existIdx >= 0) {
+      d.cells.splice(existIdx, 1);
+      if (d.cells.length === 0) state.calc.intradayDraft = null;
+    } else {
+      d.cells.push({ date: date, time: hit.time, col: hit.col, value: Number(hit.value) });
+      d.cells.sort(function (a, b) { return a.time < b.time ? -1 : 1; });
+    }
+    refreshIntradayChartCalcKeys();
+    renderCalcTables();
+  }
+
+  function cancelIntradayDraft() {
+    state.calc.intradayDraft = null;
+    refreshIntradayChartCalcKeys();
+    renderCalcTables();
+  }
+
+  function saveIntradayDraft(name) {
+    var d = state.calc.intradayDraft;
+    if (!d || d.cells.length === 0) return;
+    if (!state.activeStockId) return toast('请先选择股票');
+    var sum = d.cells.reduce(function (s, c) { return s + (Number(c.value) || 0); }, 0);
+    var payload = {
+      calc_name: (name || '').trim() || '未命名',
+      calc_type: d.type,
+      calc_value: sum,
+      source: d.cells.slice(),
+      scope: 'intraday',
+      intraday_kline_id: d.kline_id
+    };
+    Zion.saveCalc(state.activeStockId, payload).then(function (id) {
+      var rec = Object.assign({}, payload, { id: Number(id) });
+      state.calc.intraday.push(rec);
+      state.calc.intradayDraft = null;
+      refreshIntradayChartCalcKeys();
+      renderCalcTables();
+      toast('已保存：' + payload.calc_name);
+    }).catch(function (e) {
+      toast('保存失败: ' + e.message);
+      console.error(e);
+    });
+  }
+
+  function deleteIntradayCalc(id) {
+    var idx = -1;
+    for (var i = 0; i < state.calc.intraday.length; i++) {
+      if (state.calc.intraday[i].id === id) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    if (!confirm('确定删除「' + state.calc.intraday[idx].calc_name + '」？')) return;
+    Zion.deleteCalc(id).then(function () {
+      state.calc.intraday.splice(idx, 1);
+      refreshIntradayChartCalcKeys();
+      renderCalcTables();
+    }).catch(function (e) {
+      toast('删除失败: ' + e.message);
+    });
+  }
+
+  // ----- 同步给 chart 的高亮键 -----
+  function getDailyDraftKeys() {
+    var s = new Set();
+    var d = state.calc.dailyDraft;
+    if (d) for (var i = 0; i < d.cells.length; i++) s.add(d.cells[i].date + '|' + d.cells[i].col);
+    return s;
+  }
+  function getDailySavedKeys() {
+    var s = new Set();
+    var arr = state.calc.daily;
+    for (var i = 0; i < arr.length; i++) {
+      var src = arr[i].source || [];
+      for (var j = 0; j < src.length; j++) s.add(src[j].date + '|' + src[j].col);
+    }
+    return s;
+  }
+  function getIntradayDraftKeys() {
+    var s = new Set();
+    var d = state.calc.intradayDraft;
+    var klineId = getCurrentKlineId();
+    if (d && d.kline_id === klineId) {
+      for (var i = 0; i < d.cells.length; i++) s.add(d.cells[i].time + '|' + d.cells[i].col);
+    }
+    return s;
+  }
+  function getIntradaySavedKeys() {
+    var s = new Set();
+    var klineId = getCurrentKlineId();
+    if (klineId == null) return s;
+    var arr = state.calc.intraday;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].intraday_kline_id !== klineId) continue;
+      var src = arr[i].source || [];
+      for (var j = 0; j < src.length; j++) s.add(src[j].time + '|' + src[j].col);
+    }
+    return s;
+  }
+
+  function refreshDailyChartCalcKeys() {
+    if (!state.chart) return;
+    state.chart.update({
+      calcDraftKeys: getDailyDraftKeys(),
+      calcSavedKeys: getDailySavedKeys()
+    });
+  }
+  function refreshIntradayChartCalcKeys() {
+    if (!state.intraday.chart) return;
+    state.intraday.chart.update({
+      calcDraftKeys: getIntradayDraftKeys(),
+      calcSavedKeys: getIntradaySavedKeys()
+    });
+  }
+
+  // ----- 渲染计算表 -----
+  function fmtCalcValue(value, type) {
+    if (value == null || !isFinite(value)) return '-';
+    var av = Math.abs(value);
+    if (type === 'amount') {
+      if (av >= 1e8) return (value / 1e8).toFixed(2) + ' 亿元';
+      if (av >= 1e4) return (value / 1e4).toFixed(2) + ' 万元';
+      return Math.round(value).toLocaleString() + ' 元';
+    }
+    // volume：股
+    if (av >= 1e8) return (value / 1e8).toFixed(2) + ' 亿股';
+    if (av >= 1e4) return (value / 1e4).toFixed(2) + ' 万股';
+    return Math.round(value).toLocaleString() + ' 股';
+  }
+  function shortDate(d) {        // '2026-01-15' → '0115'
+    if (!d) return '';
+    return d.slice(5).replace('-', '');
+  }
+  function dateRangeStr(cells) {
+    if (!cells || cells.length === 0) return '';
+    var dates = cells.map(function (c) { return c.date; }).sort();
+    if (dates[0] === dates[dates.length - 1]) return shortDate(dates[0]);
+    return shortDate(dates[0]) + '-' + shortDate(dates[dates.length - 1]);
+  }
+  function timeRangeStr(cells) {
+    if (!cells || cells.length === 0) return '';
+    var times = cells.map(function (c) { return c.time || ''; }).sort();
+    if (times[0] === times[times.length - 1]) return times[0];
+    return times[0] + '-' + times[times.length - 1];
+  }
+  function typeTagHtml(type) {
+    if (type === 'volume') return '<span class="calc-type-tag t-volume">量</span>';
+    return '<span class="calc-type-tag t-amount">额</span>';
+  }
+
+  function renderCalcTables() {
+    // 显示/隐藏整个面板：当前股票有 K 线时显示
+    if (!els.calcSec) return;
+    if (!state.activeStockId) {
+      els.calcSec.style.display = 'none';
+      return;
+    }
+    els.calcSec.style.display = '';
+    renderCalcDailyTable();
+    renderCalcIntradayTable();
+  }
+
+  function renderCalcDailyTable() {
+    var saved = state.calc.daily;
+    var draft = state.calc.dailyDraft;
+    var hasContent = saved.length > 0 || (draft && draft.cells.length > 0);
+
+    if (!hasContent) {
+      els.calcDailyTable.style.display = 'none';
+      els.calcDailyEmpty.style.display = '';
+      return;
+    }
+    els.calcDailyTable.style.display = '';
+    els.calcDailyEmpty.style.display = 'none';
+
+    // 行 1：名字 / 行 2：结果 / 行 3：日期范围
+    var tr1 = '<tr class="calc-row-name"><td class="calc-label">计算名字</td>';
+    var tr2 = '<tr class="calc-row-value"><td class="calc-label">计算结果</td>';
+    var tr3 = '<tr class="calc-row-aux"><td class="calc-label">日期范围</td>';
+    for (var i = 0; i < saved.length; i++) {
+      var c = saved[i];
+      tr1 += '<td>' + escapeHtml(c.calc_name) + typeTagHtml(c.calc_type) +
+        '<button class="calc-del" data-action="del-daily" data-id="' + c.id + '" title="删除">×</button></td>';
+      tr2 += '<td>' + fmtCalcValue(c.calc_value, c.calc_type) + '</td>';
+      tr3 += '<td>' + dateRangeStr(c.source) + '</td>';
+    }
+    if (draft && draft.cells.length > 0) {
+      var sum = draft.cells.reduce(function (s, x) { return s + (Number(x.value) || 0); }, 0);
+      tr1 += '<td class="calc-draft-cell">' +
+        '<input type="text" class="calc-draft-input" id="dailyDraftName" placeholder="起个名字" maxlength="40">' +
+        typeTagHtml(draft.type) +
+        '<span class="calc-draft-actions">' +
+          '<button class="calc-mini-btn ok" data-action="save-daily" title="保存">✓</button>' +
+          '<button class="calc-mini-btn cancel" data-action="cancel-daily" title="取消">×</button>' +
+        '</span></td>';
+      tr2 += '<td class="calc-draft-cell"><b>' + fmtCalcValue(sum, draft.type) + '</b>' +
+        '<span class="dim" style="margin-left:6px;font-size:11px">（' + draft.cells.length + ' 笔）</span></td>';
+      tr3 += '<td class="calc-draft-cell">' + dateRangeStr(draft.cells) + '</td>';
+    }
+    tr1 += '</tr>'; tr2 += '</tr>'; tr3 += '</tr>';
+    els.calcDailyTable.querySelector('tbody').innerHTML = tr1 + tr2 + tr3;
+  }
+
+  function renderCalcIntradayTable() {
+    var saved = state.calc.intraday;
+    var draft = state.calc.intradayDraft;
+    var hasContent = saved.length > 0 || (draft && draft.cells.length > 0);
+
+    if (!hasContent) {
+      els.calcIntradayTable.style.display = 'none';
+      els.calcIntradayEmpty.style.display = '';
+      return;
+    }
+    els.calcIntradayTable.style.display = '';
+    els.calcIntradayEmpty.style.display = 'none';
+
+    var tr1 = '<tr class="calc-row-name"><td class="calc-label">计算名字</td>';
+    var tr2 = '<tr class="calc-row-value"><td class="calc-label">计算结果</td>';
+    var tr3 = '<tr class="calc-row-aux"><td class="calc-label">日期</td>';
+    var tr4 = '<tr class="calc-row-aux"><td class="calc-label">时间</td>';
+    for (var i = 0; i < saved.length; i++) {
+      var c = saved[i];
+      var srcDate = (c.source && c.source[0]) ? c.source[0].date : '';
+      tr1 += '<td>' + escapeHtml(c.calc_name) + typeTagHtml(c.calc_type) +
+        '<button class="calc-del" data-action="del-intraday" data-id="' + c.id + '" title="删除">×</button></td>';
+      tr2 += '<td>' + fmtCalcValue(c.calc_value, c.calc_type) + '</td>';
+      tr3 += '<td>' + shortDate(srcDate) + '</td>';
+      tr4 += '<td>' + timeRangeStr(c.source) + '</td>';
+    }
+    if (draft && draft.cells.length > 0) {
+      var sum = draft.cells.reduce(function (s, x) { return s + (Number(x.value) || 0); }, 0);
+      tr1 += '<td class="calc-draft-cell">' +
+        '<input type="text" class="calc-draft-input" id="intradayDraftName" placeholder="起个名字" maxlength="40">' +
+        typeTagHtml(draft.type) +
+        '<span class="calc-draft-actions">' +
+          '<button class="calc-mini-btn ok" data-action="save-intraday" title="保存">✓</button>' +
+          '<button class="calc-mini-btn cancel" data-action="cancel-intraday" title="取消">×</button>' +
+        '</span></td>';
+      tr2 += '<td class="calc-draft-cell"><b>' + fmtCalcValue(sum, draft.type) + '</b>' +
+        '<span class="dim" style="margin-left:6px;font-size:11px">（' + draft.cells.length + ' 笔）</span></td>';
+      tr3 += '<td class="calc-draft-cell">' + shortDate(draft.date) + '</td>';
+      tr4 += '<td class="calc-draft-cell">' + timeRangeStr(draft.cells) + '</td>';
+    }
+    tr1 += '</tr>'; tr2 += '</tr>'; tr3 += '</tr>'; tr4 += '</tr>';
+    els.calcIntradayTable.querySelector('tbody').innerHTML = tr1 + tr2 + tr3 + tr4;
+  }
+
+  // 计算面板内的 click 委托（保存/取消/删除）
+  function bindCalcHandlers() {
+    if (!els.calcSec) return;
+
+    els.calcMode.addEventListener('change', function () {
+      state.calc.mode = els.calcMode.checked;
+      els.calcModeHint.textContent = state.calc.mode
+        ? '已开启 · 双击图下「量/额」格子累加；同列只能加同一类'
+        : '关闭中 · 打开开关后双击图下「量/额」格子累加';
+      // 关闭时丢弃所有未保存草稿，避免误以为还在累加
+      if (!state.calc.mode) {
+        state.calc.dailyDraft = null;
+        state.calc.intradayDraft = null;
+        refreshDailyChartCalcKeys();
+        refreshIntradayChartCalcKeys();
+        renderCalcTables();
+      }
+    });
+
+    els.calcSec.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-action]');
+      if (!t) return;
+      var action = t.getAttribute('data-action');
+      if (action === 'save-daily') {
+        var inp = document.getElementById('dailyDraftName');
+        saveDailyDraft(inp ? inp.value : '');
+      } else if (action === 'cancel-daily') {
+        cancelDailyDraft();
+      } else if (action === 'save-intraday') {
+        var inp2 = document.getElementById('intradayDraftName');
+        saveIntradayDraft(inp2 ? inp2.value : '');
+      } else if (action === 'cancel-intraday') {
+        cancelIntradayDraft();
+      } else if (action === 'del-daily') {
+        deleteDailyCalc(+t.getAttribute('data-id'));
+      } else if (action === 'del-intraday') {
+        deleteIntradayCalc(+t.getAttribute('data-id'));
+      }
+    });
+
+    // Enter 触发保存（草稿输入框）
+    els.calcSec.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      if (e.target && e.target.id === 'dailyDraftName') {
+        saveDailyDraft(e.target.value);
+      } else if (e.target && e.target.id === 'intradayDraftName') {
+        saveIntradayDraft(e.target.value);
+      }
+    });
+  }
+
   // ============== 新建股票 ==============
   function openCreateStockModal() {
     els.modalMask.classList.add('show');
@@ -793,6 +1253,15 @@
     els.ipCanvas = document.getElementById('ipCanvas');
     els.ipLoading = document.getElementById('ipLoading');
     els.ipEmpty = document.getElementById('ipEmpty');
+
+    // 计算面板
+    els.calcSec = document.getElementById('calcSec');
+    els.calcMode = document.getElementById('calcMode');
+    els.calcModeHint = document.getElementById('calcModeHint');
+    els.calcDailyTable = document.getElementById('calcDailyTable');
+    els.calcDailyEmpty = document.getElementById('calcDailyEmpty');
+    els.calcIntradayTable = document.getElementById('calcIntradayTable');
+    els.calcIntradayEmpty = document.getElementById('calcIntradayEmpty');
   }
 
   function bindHandlers() {
@@ -855,13 +1324,16 @@
       if (state.chart) state.chart.draw();
       if (state.intraday.open && state.intraday.chart) state.intraday.chart.draw();
     });
+
+    bindCalcHandlers();
   }
 
   function checkConfig() {
     var cfg = window.YCCT_CONFIG && window.YCCT_CONFIG.zion;
     if (!cfg) return false;
     var keys = ['createStock', 'listStocks', 'deleteStock',
-                'listKline', 'saveMarkers', 'getMarkers'];
+                'listKline', 'saveMarkers', 'getMarkers',
+                'saveCalc', 'listCalcs', 'deleteCalc'];
     for (var i = 0; i < keys.length; i++) {
       if (!cfg[keys[i]]) return false;
     }
@@ -902,6 +1374,7 @@
       renderChart();
       renderMarkerTags();
       renderIntervalTable();
+      renderCalcTables();
       showStatus('演示模式：使用本地样本数据 ' + rows.length + ' 个交易日');
     }).catch(function (e) {
       els.chartWrap.innerHTML = '<div class="empty-chart" style="color:#c62828">' +

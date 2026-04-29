@@ -159,8 +159,16 @@
       }
     });
 
-    // ---- 双击插入/删除标注 ----
-    canvas.addEventListener('dblclick', function () {
+    // ---- 双击：先看是否命中标注表的量/额单元格 → onCellDblclick；否则 onDblclick ----
+    canvas.addEventListener('dblclick', function (e) {
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      var py = e.clientY - rect.top;
+      var hit = self.getCellAt(px, py);
+      if (hit) {
+        if (self.opts.onCellDblclick) self.opts.onCellDblclick(hit);
+        return;
+      }
       if (self.hoverIdx < 0) return;
       if (self.opts.onDblclick) self.opts.onDblclick(self.hoverIdx);
     });
@@ -178,6 +186,16 @@
       }
       if (self.opts.onDblclick) self.opts.onDblclick(markers[closest]);
     });
+  };
+
+  // 命中标注表里的量/额单元格（无命中时返回 null）
+  YcctChart.prototype.getCellAt = function (px, py) {
+    if (!this._cellHits) return null;
+    for (var i = 0; i < this._cellHits.length; i++) {
+      var h = this._cellHits[i];
+      if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) return h;
+    }
+    return null;
   };
 
   YcctChart.prototype._idxAtX = function (px) {
@@ -434,6 +452,9 @@
     var top = this._sec1Top;
     var labelX = this._padLeft - 10;
 
+    // 重置点击命中区（下面 drawCol 会按 marker 列填充）
+    this._cellHits = [];
+
     // ===== 左侧标签列 =====
     ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'right';
@@ -514,10 +535,51 @@
         var volC = vol == null ? null : vol / volUnit;
         ctx.fillText(fmtNum(volC, dpV), col.x, top + rowIdxVolume * rowH + fs);
       }
+
+      // 记录可点击的量/额单元格（外层捕获 dblclick 时用 getCellAt 命中）
+      var halfW = 36;
+      if (rowIdxAmount >= 0 && amt != null) {
+        self._cellHits.push({
+          idx: idx, date: data.dates[idx], col: 'amount', value: amt,
+          key: data.dates[idx] + '|amount',
+          x: col.x - halfW, y: top + rowIdxAmount * rowH - 1,
+          w: halfW * 2, h: rowH + 1
+        });
+      }
+      if (rowIdxVolume >= 0 && vol != null) {
+        self._cellHits.push({
+          idx: idx, date: data.dates[idx], col: 'volume', value: vol,
+          key: data.dates[idx] + '|volume',
+          x: col.x - halfW, y: top + rowIdxVolume * rowH - 1,
+          w: halfW * 2, h: rowH + 1
+        });
+      }
     }
 
     // 阶段 1：先画所有 marker 列
     for (var i = 0; i < cols.length; i++) drawCol(i);
+
+    // 阶段 1.5：草稿/已保存格子描边（实线 = 草稿当前累加；虚线 = 之前已保存）
+    var draftSet = this.opts.calcDraftKeys || null;
+    var savedSet = this.opts.calcSavedKeys || null;
+    if (draftSet || savedSet) {
+      for (var ch = 0; ch < this._cellHits.length; ch++) {
+        var hit = this._cellHits[ch];
+        var inDraft = draftSet && draftSet.has(hit.key);
+        var inSaved = savedSet && savedSet.has(hit.key);
+        if (!inDraft && !inSaved) continue;
+        ctx.lineWidth = 1.5;
+        if (inDraft) {
+          ctx.strokeStyle = COLOR_MARKER;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = 'rgba(234,88,12,0.45)';
+          ctx.setLineDash([3, 2]);
+        }
+        ctx.strokeRect(hit.x + 0.5, hit.y + 0.5, hit.w - 1, hit.h - 1);
+      }
+      ctx.setLineDash([]);
+    }
 
     // 阶段 2：hover 高亮 → 白底矩形覆盖相邻 + 重画该列 + 橙色边框
     if (hoverCol >= 0) {
@@ -742,8 +804,16 @@
       if (self.hoverIdx !== -1) { self.hoverIdx = -1; self.draw(); }
     });
 
-    on('dblclick', function () {
+    on('dblclick', function (e) {
       if (self._destroyed) return;
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      var py = e.clientY - rect.top;
+      var hit = self.getCellAt(px, py);
+      if (hit) {
+        if (self.opts.onCellDblclick) self.opts.onCellDblclick(hit);
+        return;
+      }
       if (self.hoverIdx < 0) return;
       if (self.opts.onMark) self.opts.onMark(self.hoverIdx);
     });
@@ -776,6 +846,16 @@
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+  };
+
+  // 命中标注表里的量/额单元格
+  IntradayChart.prototype.getCellAt = function (px, py) {
+    if (!this._cellHits) return null;
+    for (var i = 0; i < this._cellHits.length; i++) {
+      var h = this._cellHits[i];
+      if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) return h;
+    }
+    return null;
   };
 
   IntradayChart.prototype._idxAtX = function (px) {
@@ -992,6 +1072,8 @@
     var top = this._sec1Top;
     var labelX = this._padLeft - 8;
 
+    this._cellHits = [];
+
     // 左侧标签列
     ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'right';
@@ -1057,10 +1139,51 @@
       ctx.fillStyle = COLOR_TEXT;
       ctx.fillText(t.v != null ? formatCount(t.v) : '-', col.x, top + rowVol * rowH + fs);
       ctx.fillText(t.a != null ? formatCount(t.a) : '-', col.x, top + rowAmt * rowH + fs);
+
+      // 记录可点击单元格（仅 v 和 a 行有数据时才记录）
+      var halfW = 36;
+      if (t.v != null) {
+        self._cellHits.push({
+          idx: col.idx, time: t.t, col: 'volume', value: t.v,
+          key: t.t + '|volume',
+          x: col.x - halfW, y: top + rowVol * rowH - 1,
+          w: halfW * 2, h: rowH + 1
+        });
+      }
+      if (t.a != null) {
+        self._cellHits.push({
+          idx: col.idx, time: t.t, col: 'amount', value: t.a,
+          key: t.t + '|amount',
+          x: col.x - halfW, y: top + rowAmt * rowH - 1,
+          w: halfW * 2, h: rowH + 1
+        });
+      }
     }
 
     // ===== 阶段 1：先画所有 marker 列 =====
     for (var i = 0; i < cols.length; i++) drawCol(i);
+
+    // ===== 阶段 1.5：草稿/已保存格子描边 =====
+    var draftSet = this.opts.calcDraftKeys || null;
+    var savedSet = this.opts.calcSavedKeys || null;
+    if (draftSet || savedSet) {
+      for (var ch = 0; ch < this._cellHits.length; ch++) {
+        var hit = this._cellHits[ch];
+        var inDraft = draftSet && draftSet.has(hit.key);
+        var inSaved = savedSet && savedSet.has(hit.key);
+        if (!inDraft && !inSaved) continue;
+        ctx.lineWidth = 1.5;
+        if (inDraft) {
+          ctx.strokeStyle = COLOR_MARKER;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = 'rgba(234,88,12,0.45)';
+          ctx.setLineDash([3, 2]);
+        }
+        ctx.strokeRect(hit.x + 0.5, hit.y + 0.5, hit.w - 1, hit.h - 1);
+      }
+      ctx.setLineDash([]);
+    }
 
     // ===== 阶段 2：hover 高亮 —— 白底矩形覆盖相邻列 + 重画该列 + 边框 =====
     if (hoverCol >= 0) {

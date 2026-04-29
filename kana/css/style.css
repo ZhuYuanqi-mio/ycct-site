@@ -553,6 +553,168 @@ body {
 .iv-table tr:hover td { background: var(--bg-hover); }
 .iv-table tr:last-child td { border-bottom: 0; }
 
+/* ================== Calc panel (量/额 累加计算) ================== */
+.calc-block {
+  margin-top: 12px;
+}
+.calc-block:first-of-type {
+  margin-top: 8px;
+}
+.calc-block-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+.calc-table-wrap {
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+}
+.calc-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  width: max-content;
+  min-width: 100%;
+}
+.calc-table tr.calc-row-name {
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+}
+.calc-table tr.calc-row-value td {
+  background: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-1);
+}
+.calc-table tr.calc-row-aux td {
+  background: #fff;
+  color: var(--text-3);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.calc-table tr.calc-row-aux:last-child td {
+  border-bottom: 0;
+}
+.calc-table tr.calc-row-name td {
+  padding: 6px 10px;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-2);
+  position: relative;
+  border-right: 1px solid var(--border);
+  min-width: 110px;
+}
+.calc-table tr.calc-row-name td:last-child { border-right: 0; }
+.calc-table tr.calc-row-value td {
+  padding: 8px 10px;
+  text-align: center;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.calc-table tr.calc-row-value td:last-child { border-right: 0; }
+.calc-table tr.calc-row-aux td {
+  padding: 4px 10px;
+  text-align: center;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+}
+.calc-table tr.calc-row-aux td:last-child { border-right: 0; }
+.calc-table tr.calc-row-name td.calc-label,
+.calc-table tr.calc-row-value td.calc-label,
+.calc-table tr.calc-row-aux td.calc-label {
+  background: var(--bg-input);
+  color: var(--text-3);
+  font-weight: 600;
+  text-align: right;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 80px;
+}
+.calc-table .calc-type-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  border-radius: 3px;
+  margin-left: 4px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.calc-type-tag.t-volume { background: #dbeafe; color: #1d4ed8; }
+.calc-type-tag.t-amount { background: #fee2e2; color: #b91c1c; }
+.calc-table .calc-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 3px;
+  border: 0;
+  background: transparent;
+  color: var(--text-4);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+.calc-table .calc-del:hover { background: #fee2e2; color: #b91c1c; }
+.calc-table .calc-draft-input {
+  width: 90px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.calc-table .calc-draft-input:focus {
+  border-color: var(--orange);
+}
+.calc-table .calc-draft-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.calc-table .calc-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.calc-table .calc-mini-btn.ok { color: var(--orange); border-color: var(--orange); }
+.calc-table .calc-mini-btn.ok:hover { background: var(--orange); color: #fff; }
+.calc-table .calc-mini-btn.cancel:hover { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.calc-table tr.calc-row-name td.calc-draft-cell {
+  background: #fff7ed;
+}
+.calc-table tr.calc-row-value td.calc-draft-cell,
+.calc-table tr.calc-row-aux td.calc-draft-cell {
+  background: #fff7ed;
+}
+.calc-empty {
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-4);
+}
+
 /* ================== Modal ================== */
 .modal-mask {
   position: fixed;

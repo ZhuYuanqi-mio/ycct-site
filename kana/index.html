@@ -177,6 +177,41 @@
       </div>
     </div>
 
+    <!-- 计算面板（量/额累加） -->
+    <div class="panel" id="calcSec" style="padding:10px 14px;display:none">
+      <div class="panel-title">
+        计算
+        <label class="switch" id="calcModeSwitch" title="打开后双击「成交量」或「成交额」单元格累加">
+          <input type="checkbox" id="calcMode">
+          <span class="track"></span>
+        </label>
+        <span class="dim" id="calcModeHint">关闭中 · 打开开关后双击图下「量/额」格子累加</span>
+        <span class="grow"></span>
+      </div>
+
+      <!-- 日 K 计算表 -->
+      <div class="calc-block">
+        <div class="calc-block-title">日 K 计算记录</div>
+        <div class="calc-table-wrap">
+          <table class="calc-table" id="calcDailyTable">
+            <tbody></tbody>
+          </table>
+          <div class="calc-empty" id="calcDailyEmpty">还没有日 K 计算记录 —— 打开开关后双击图下方标注表里的「成交量」或「成交额」开始累加</div>
+        </div>
+      </div>
+
+      <!-- 分时计算表 -->
+      <div class="calc-block">
+        <div class="calc-block-title">分时计算记录</div>
+        <div class="calc-table-wrap">
+          <table class="calc-table" id="calcIntradayTable">
+            <tbody></tbody>
+          </table>
+          <div class="calc-empty" id="calcIntradayEmpty">还没有分时计算记录 —— 在分时浮窗里双击「交易量」或「交易额」累加</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 区间数据表 -->
     <div class="panel" id="intervalSec" style="display:none"></div>
 
