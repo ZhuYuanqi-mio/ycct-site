@@ -439,6 +439,20 @@ input.fs-input::-webkit-inner-spin-button {
 input.fs-input:focus {
   background: #fff7ed;
 }
+/* 工具栏紧凑日期输入 */
+input.date-input {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  outline: none;
+}
+input.date-input:focus { border-color: var(--orange); background: #fff7ed; }
 
 .status {
   font-size: 12px;

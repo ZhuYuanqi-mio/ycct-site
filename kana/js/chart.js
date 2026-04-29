@@ -81,6 +81,32 @@
     if (this.opts.onView) this.opts.onView(this.getViewInfo());
   };
 
+  // 按日期范围设视窗。startDate / endDate 形如 'YYYY-MM-DD'；
+  // 自动选取 dates 数组中 >= startDate 的最早索引 与 <= endDate 的最晚索引。
+  YcctChart.prototype.setViewByDateRange = function (startDate, endDate) {
+    if (!this.opts.data) return;
+    var dates = this.opts.data.dates;
+    var n = dates.length;
+    if (n === 0) return;
+    var s = -1, e = -1;
+    for (var i = 0; i < n; i++) {
+      if (s < 0 && dates[i] >= startDate) s = i;
+      if (dates[i] <= endDate) e = i;
+    }
+    if (s < 0) s = 0;
+    if (e < 0) e = n - 1;
+    if (s > e) { var tmp = s; s = e; e = tmp; }
+    if (e - s + 1 < 8) {
+      // 凑足最小 8 天
+      if (e + (8 - (e - s + 1)) <= n - 1) e = s + 7;
+      else { e = n - 1; s = Math.max(0, n - 8); }
+    }
+    this.viewStart = s;
+    this.viewEnd = e;
+    this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
+  };
+
   // 直接设定视窗天数（输入框场景）。clamp 到 [8, total]
   YcctChart.prototype.setViewSize = function (size) {
     if (!this.opts.data) return;
@@ -351,7 +377,7 @@
     this._plotH = this._isMobile ? 320 : 460;
     this._chartBottom = this._chartTop + this._plotH;
 
-    this._sec1Top = this._chartBottom + 24;
+    this._sec1Top = this._chartBottom + 30;
     this._sec2Top = this._sec1Top + this._sec1H;
 
     var totalH = this._sec2Top + this._sec2H + 24;
@@ -462,18 +488,23 @@
       }
     }
 
-    // X 轴标签（只显示 view 内）
+    // X 轴标签（年 / 月日 两行；只显示 view 内）
     var step = Math.max(1, Math.floor(viewN / 16));
-    ctx.fillStyle = COLOR_TEXT_3;
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    for (var xi = this.viewStart; xi <= this.viewEnd; xi += step) {
-      var xL = this._xOf(xi);
-      ctx.fillText(data.dates[xi].slice(5), xL, this._chartBottom + 14);
-    }
-    if ((this.viewEnd - this.viewStart) % step !== 0) {
-      ctx.fillText(data.dates[this.viewEnd].slice(5), this._xOf(this.viewEnd), this._chartBottom + 14);
-    }
+    var drawXLabel = function (idx) {
+      var ds = data.dates[idx];
+      if (!ds) return;
+      var y = ds.slice(0, 4);
+      var md = ds.slice(5).replace('-', '');
+      var xL = this._xOf(idx);
+      ctx.fillStyle = '#bdbdbd';
+      ctx.fillText(y, xL, this._chartBottom + 11);
+      ctx.fillStyle = COLOR_TEXT_3;
+      ctx.fillText(md, xL, this._chartBottom + 23);
+    }.bind(this);
+    for (var xi = this.viewStart; xi <= this.viewEnd; xi += step) drawXLabel(xi);
+    if ((this.viewEnd - this.viewStart) % step !== 0) drawXLabel(this.viewEnd);
 
     // hover
     if (this._isInView(this.hoverIdx)) {
