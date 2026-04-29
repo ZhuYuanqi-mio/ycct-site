@@ -337,8 +337,11 @@
     if (bR1) bR1.disabled = info.end === info.total - 1;
     if (bR5) bR5.disabled = info.end === info.total - 1;
 
-    // 工具栏天数显示
-    if (els.viewSizeVal) els.viewSizeVal.textContent = visN;
+    // 工具栏天数输入框：仅在用户没在编辑时同步
+    if (els.viewSizeInput && document.activeElement !== els.viewSizeInput) {
+      els.viewSizeInput.value = visN;
+    }
+    if (els.viewSizeInput) els.viewSizeInput.max = String(info.total);
 
     // 同步 +/- 按钮可用性
     if (els.btnZoomIn) els.btnZoomIn.disabled = visN <= 8;
@@ -1312,7 +1315,7 @@
     els.btnSave = document.getElementById('btnSave');
     els.btnZoomIn = document.getElementById('btnZoomIn');     // -（少看 1 天）
     els.btnZoomOut = document.getElementById('btnZoomOut');   // +（多看 1 天）
-    els.viewSizeVal = document.getElementById('viewSizeVal');
+    els.viewSizeInput = document.getElementById('viewSizeInput');
 
     els.showAvg = document.getElementById('showAvg');
     els.dpPrice = document.getElementById('dpPrice');
@@ -1412,6 +1415,27 @@
     els.btnZoomOut.addEventListener('click', function () {
       if (state.chart) state.chart.zoomBy(1);    // 多看 1 天
     });
+
+    // 天数输入框：Enter / 失焦时应用
+    if (els.viewSizeInput) {
+      var applyViewSize = function () {
+        if (!state.chart) return;
+        var v = parseInt(els.viewSizeInput.value, 10);
+        if (!isFinite(v) || v < 8) v = 8;
+        state.chart.setViewSize(v);
+      };
+      els.viewSizeInput.addEventListener('change', applyViewSize);
+      els.viewSizeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyViewSize();
+          els.viewSizeInput.blur();
+        }
+      });
+      els.viewSizeInput.addEventListener('focus', function () {
+        els.viewSizeInput.select();
+      });
+    }
 
     els.showAvg.addEventListener('change', refreshChartOnly);
     els.dpPrice.addEventListener('input', refreshChartOnly);

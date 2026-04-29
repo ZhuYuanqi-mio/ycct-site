@@ -117,11 +117,11 @@
 
       <span class="sep"></span>
 
-      <span class="opt" title="窗口大小（每次 ± 1 天）">
+      <span class="opt" title="窗口大小（可直接输入或 ± 1 天）">
         天数
         <span class="fs-group">
           <button class="fs-btn" id="btnZoomOut" type="button" title="多看 1 天">+</button>
-          <span class="fs-val" id="viewSizeVal">20</span>
+          <input class="fs-val fs-input" id="viewSizeInput" type="number" min="8" inputmode="numeric" value="20">
           <button class="fs-btn" id="btnZoomIn" type="button" title="少看 1 天">−</button>
         </span>
       </span>

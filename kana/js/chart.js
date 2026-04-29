@@ -81,6 +81,19 @@
     if (this.opts.onView) this.opts.onView(this.getViewInfo());
   };
 
+  // 直接设定视窗天数（输入框场景）。clamp 到 [8, total]
+  YcctChart.prototype.setViewSize = function (size) {
+    if (!this.opts.data) return;
+    var n = this.opts.data.dates.length;
+    var cur = this.viewEnd - this.viewStart + 1;
+    var newSize = Math.max(8, Math.min(n, Math.round(Number(size) || cur)));
+    if (newSize === cur) return;
+    this.viewStart = Math.max(0, this.viewEnd - newSize + 1);
+    if (this.viewStart === 0) this.viewEnd = Math.min(n - 1, this.viewStart + newSize - 1);
+    this.draw();
+    if (this.opts.onView) this.opts.onView(this.getViewInfo());
+  };
+
   // 平移：视窗整体向右移动 delta 天（delta 可负，向左为更早）
   YcctChart.prototype.panBy = function (delta) {
     if (!this.opts.data) return;

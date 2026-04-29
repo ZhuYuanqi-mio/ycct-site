@@ -367,6 +367,26 @@ body {
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
 }
+/* 天数输入框（替代纯展示的 .fs-val） */
+input.fs-input {
+  width: 44px;
+  padding: 0 4px;
+  border-top: none;
+  border-bottom: none;
+  outline: none;
+  font-family: inherit;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input.fs-input::-webkit-outer-spin-button,
+input.fs-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input.fs-input:focus {
+  background: #fff7ed;
+}
 
 .status {
   font-size: 12px;
