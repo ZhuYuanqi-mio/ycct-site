@@ -1661,6 +1661,12 @@
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     if (plotW <= 0 || plotH <= 0) return;
+    // 价格区 75% + 量柱区 25%（中间留 6px gap）
+    var volGap = 6;
+    var plotVolH = Math.max(36, Math.floor((plotH - volGap) * 0.25));
+    var plotPriceH = plotH - plotVolH - volGap;
+    var volTopY = padT + plotPriceH + volGap;
+    var volBotY = padT + plotH;
 
     // 价格区间：同花顺式 —— 以昨收为中轴对称
     // 振幅 amp = max(|today_high - prevClose|, |prevClose - today_low|)
@@ -1694,7 +1700,7 @@
       return padL + plotW * i / (ticks.length - 1);
     }
     function yOfPrice(p) {
-      return padT + plotH * (1 - (p - lo) / span);
+      return padT + plotPriceH * (1 - (p - lo) / span);
     }
     function findTimeRange(s, e) {
       var si = -1, ei = -1;
@@ -1707,14 +1713,16 @@
       return [si, ei];
     }
 
-    // 1) 黄色背景：选中区间（先画在最底层）
+    // 1) 黄色背景：选中区间（先画在最底层；价格区 + 量柱区都覆盖）
     if (startT && endT) {
       var range = findTimeRange(startT, endT);
       if (range[0] >= 0 && range[1] >= range[0]) {
         var x0 = xOfIdx(range[0]);
         var x1 = xOfIdx(range[1]);
+        var bgW = Math.max(2, x1 - x0);
         ctx.fillStyle = 'rgba(250, 204, 21, 0.30)';
-        ctx.fillRect(x0, padT, Math.max(2, x1 - x0), plotH);
+        ctx.fillRect(x0, padT, bgW, plotPriceH);
+        ctx.fillRect(x0, volTopY, bgW, plotVolH);
       }
     }
 
@@ -1725,7 +1733,7 @@
     ctx.textBaseline = 'middle';
     var GRID_N = 4;
     for (var k = 0; k <= GRID_N; k++) {
-      var gy = padT + plotH * k / GRID_N;
+      var gy = padT + plotPriceH * k / GRID_N;
       var gv = hi - span * k / GRID_N;
       // 网格横线
       ctx.strokeStyle = '#e5e7eb';
@@ -1792,6 +1800,69 @@
       else ctx.lineTo(xx, yy);
     }
     ctx.stroke();
+
+    // 4b1) 量柱区（涨红 / 跌绿 / 平灰，相对昨收；无昨收时统一蓝色）
+    var vMax = 0;
+    for (var vi = 0; vi < ticks.length; vi++) {
+      var vv = Number(ticks[vi].v);
+      if (isFinite(vv) && vv > vMax) vMax = vv;
+    }
+    // 价格区底边 + 量柱区底边的分隔线
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, volTopY);
+    ctx.lineTo(W - padR, volTopY);
+    ctx.moveTo(padL, volBotY);
+    ctx.lineTo(W - padR, volBotY);
+    ctx.stroke();
+    if (vMax > 0) {
+      var barW = Math.max(1, (plotW / Math.max(1, ticks.length - 1)) * 0.7);
+      for (var bi = 0; bi < ticks.length; bi++) {
+        var vol = Number(ticks[bi].v);
+        if (!isFinite(vol) || vol <= 0) continue;
+        var bp = ticks[bi].p;
+        var bColor;
+        if (pcRef != null && bp != null) {
+          bColor = bp > pcRef ? '#dc2626' : (bp < pcRef ? '#16a34a' : '#9ca3af');
+        } else {
+          bColor = '#2563eb';
+        }
+        var bx = xOfIdx(bi);
+        var bh = plotVolH * (vol / vMax);
+        if (bh < 1) bh = 1;
+        ctx.fillStyle = bColor;
+        ctx.fillRect(bx - barW / 2, volBotY - bh, barW, bh);
+      }
+      // 量柱左右轴刻度（顶 = vMax / 中 = vMax/2 / 底 = "万"）
+      var unitDiv = 1e4;
+      function _fmtVol(v) {
+        var x = v / unitDiv;
+        if (x >= 1000) return Math.round(x).toString();
+        if (x >= 100) return x.toFixed(0);
+        if (x >= 10) return x.toFixed(1);
+        return x.toFixed(2);
+      }
+      var maxLabel = _fmtVol(vMax);
+      var midLabel = _fmtVol(vMax / 2);
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.fillStyle = '#9ca3af';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'right';
+      ctx.fillText(maxLabel, padL - 6, volTopY);
+      ctx.textAlign = 'left';
+      ctx.fillText(maxLabel, W - padR + 6, volTopY);
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'right';
+      ctx.fillText(midLabel, padL - 6, volTopY + plotVolH / 2);
+      ctx.textAlign = 'left';
+      ctx.fillText(midLabel, W - padR + 6, volTopY + plotVolH / 2);
+      ctx.textBaseline = 'bottom';
+      ctx.textAlign = 'right';
+      ctx.fillText('万', padL - 6, volBotY);
+      ctx.textAlign = 'left';
+      ctx.fillText('万', W - padR + 6, volBotY);
+    }
 
     // 4b) 9:30 开盘涨跌幅标签（贴在分时折线最右端的左侧）
     if (pcRef != null && firstIdxWithP >= 0 && lastIdxWithP >= 0) {
