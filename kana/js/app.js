@@ -1238,7 +1238,15 @@
   }
 
   function renderCalcIntradayTable() {
-    var saved = state.calc.intraday;
+    // 按日期升序，同日期再按时间升序排列；日期越小越靠左
+    var saved = state.calc.intraday.slice().sort(function (a, b) {
+      var da = (a.source && a.source[0] && a.source[0].date) || '';
+      var db = (b.source && b.source[0] && b.source[0].date) || '';
+      if (da !== db) return da < db ? -1 : 1;
+      var ta = (a.source && a.source[0] && a.source[0].time) || '';
+      var tb = (b.source && b.source[0] && b.source[0].time) || '';
+      return ta < tb ? -1 : (ta > tb ? 1 : 0);
+    });
 
     if (saved.length === 0) {
       els.calcIntradayTable.style.display = 'none';
