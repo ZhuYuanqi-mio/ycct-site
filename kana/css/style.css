@@ -646,6 +646,86 @@ input.date-input:focus { border-color: var(--orange); background: #fff7ed; }
 .calc-block:first-of-type {
   margin-top: 8px;
 }
+
+/* 计算面板顶部工具条（按区间累加按钮） */
+.calc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+}
+.calc-toolbar .btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.calc-toolbar .btn-sm .ico { width: 14px; height: 14px; }
+.calc-toolbar-tip {
+  font-size: 12px;
+  color: var(--text-3);
+  flex: 1;
+  min-width: 200px;
+}
+
+/* 「按区间累加」弹窗 */
+.interval-modal { min-width: 360px; }
+.interval-date-select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--bg-input);
+  color: var(--text);
+}
+.interval-time-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.interval-time-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.interval-time-col input[type="time"] {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--bg-input);
+  color: var(--text);
+}
+.interval-result {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 14px 0 6px;
+  text-align: center;
+}
+.interval-result-label {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.interval-result-value {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+.interval-result-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
 .calc-block-title {
   font-size: 12px;
   font-weight: 600;

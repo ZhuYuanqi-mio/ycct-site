@@ -1444,6 +1444,161 @@
     window.addEventListener('resize', function () {
       if (els.calcFloat.style.display !== 'none') positionCalcFloat();
     });
+
+    // ====== 「按区间累加」弹窗事件 ======
+    if (els.btnIntervalCalc) {
+      els.btnIntervalCalc.addEventListener('click', openIntervalCalcModal);
+      els.intervalCancel.addEventListener('click', closeIntervalCalcModal);
+      els.intervalSubmit.addEventListener('click', submitIntervalCalc);
+      els.intervalModalMask.addEventListener('click', function (e) {
+        if (e.target === els.intervalModalMask) closeIntervalCalcModal();
+      });
+      // 任意输入变化都重算
+      ['change', 'input'].forEach(function (ev) {
+        els.intervalDate.addEventListener(ev, recalcIntervalDebounced);
+        els.intervalStart.addEventListener(ev, recalcIntervalDebounced);
+        els.intervalEnd.addEventListener(ev, recalcIntervalDebounced);
+      });
+      els.intervalTitle.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') submitIntervalCalc();
+      });
+    }
+  }
+
+  // ============== 按区间累加（分时成交额） ==============
+  var _intervalRecalcTimer = null;
+  function recalcIntervalDebounced() {
+    clearTimeout(_intervalRecalcTimer);
+    _intervalRecalcTimer = setTimeout(recalcInterval, 200);
+  }
+
+  function openIntervalCalcModal() {
+    if (!state.activeStockId) return toast('请先选择股票');
+    if (!state.klineData || !state.klineData.dates || state.klineData.dates.length === 0) {
+      return toast('当前股票没有 K 线数据');
+    }
+    var dates = state.klineData.dates;
+    // 默认选当前 hover 的日期 / 已打开分时的日期 / 最后一天
+    var defaultIdx = dates.length - 1;
+    if (state.intraday.open && state.intraday.dayIdx >= 0) {
+      defaultIdx = state.intraday.dayIdx;
+    }
+    var html = '';
+    for (var i = dates.length - 1; i >= 0; i--) {
+      html += '<option value="' + i + '">' + dates[i] + '</option>';
+    }
+    els.intervalDate.innerHTML = html;
+    els.intervalDate.value = String(defaultIdx);
+    els.intervalStart.value = '09:30';
+    els.intervalEnd.value = '11:30';
+    els.intervalTitle.value = '';
+    els.intervalResultValue.textContent = '—';
+    els.intervalResultMeta.textContent = '正在计算 …';
+    state.calc._intervalLoaded = null;
+    els.intervalModalMask.classList.add('show');
+    setTimeout(function () { els.intervalDate.focus(); }, 50);
+    recalcInterval();   // 默认就算一次
+  }
+
+  function closeIntervalCalcModal() {
+    els.intervalModalMask.classList.remove('show');
+    state.calc._intervalLoaded = null;
+  }
+
+  // 内部：拿当天 ticks（缓存优先）
+  function _fetchTicksForDayIdx(dayIdx) {
+    var stockId = state.activeStockId;
+    var klineId = state.klineData.klineIds ? state.klineData.klineIds[dayIdx] : null;
+    var cacheKey = state.isDemo ? ('demo_' + stockId + '_' + dayIdx)
+                                : (klineId != null ? ('k_' + klineId) : null);
+    if (cacheKey && state.intradayCache[cacheKey]) {
+      return Promise.resolve(state.intradayCache[cacheKey]);
+    }
+    var p;
+    if (state.isDemo) p = fetchDemoIntraday(dayIdx);
+    else if (klineId != null) p = Zion.getIntraday(klineId);
+    else p = Promise.reject(new Error('未取到 kline_id'));
+    return p.then(function (ticks) {
+      if (cacheKey) state.intradayCache[cacheKey] = ticks || [];
+      return ticks || [];
+    });
+  }
+
+  function recalcInterval() {
+    var dayIdx = parseInt(els.intervalDate.value, 10);
+    if (!isFinite(dayIdx)) return;
+    var startT = els.intervalStart.value || '09:30';
+    var endT = els.intervalEnd.value || '15:00';
+    if (startT > endT) { var tmp = startT; startT = endT; endT = tmp; }
+    els.intervalResultValue.textContent = '加载中 …';
+    els.intervalResultMeta.textContent = state.klineData.dates[dayIdx] + '  ' + startT + ' ~ ' + endT;
+    _fetchTicksForDayIdx(dayIdx).then(function (ticks) {
+      if (!ticks || ticks.length === 0) {
+        els.intervalResultValue.textContent = '无数据';
+        els.intervalResultMeta.textContent = '该日没有分时数据';
+        state.calc._intervalLoaded = null;
+        return;
+      }
+      var total = 0; var n = 0;
+      for (var i = 0; i < ticks.length; i++) {
+        var t = ticks[i].t;
+        if (!t) continue;
+        if (t >= startT && t <= endT) {
+          total += Number(ticks[i].a) || 0;
+          n++;
+        }
+      }
+      state.calc._intervalLoaded = {
+        dayIdx: dayIdx,
+        date: state.klineData.dates[dayIdx],
+        startT: startT,
+        endT: endT,
+        total: total,
+        n: n
+      };
+      els.intervalResultValue.textContent = (total / 1e8).toFixed(2) + ' 亿元';
+      els.intervalResultMeta.textContent = state.klineData.dates[dayIdx] +
+        '  ' + startT + ' ~ ' + endT + '  共 ' + n + ' 个分时点';
+    }).catch(function (e) {
+      els.intervalResultValue.textContent = '加载失败';
+      els.intervalResultMeta.textContent = e.message || String(e);
+      state.calc._intervalLoaded = null;
+    });
+  }
+
+  function submitIntervalCalc() {
+    var info = state.calc._intervalLoaded;
+    if (!info) return toast('请等待计算结果出现');
+    var klineId = state.klineData.klineIds ? state.klineData.klineIds[info.dayIdx] : null;
+    if (klineId == null) return toast('该日没有 kline_id，无法保存');
+    var name = (els.intervalTitle.value || '').trim();
+    if (!name) name = info.startT + '-' + info.endT + ' 成交额';
+    var payload = {
+      calc_name: name,
+      calc_type: 'amount',
+      calc_value: info.total,
+      source: [{
+        date: info.date,
+        time: info.startT + '~' + info.endT,
+        col: 'amount',
+        value: info.total
+      }],
+      scope: 'intraday',
+      intraday_kline_id: klineId
+    };
+    els.intervalSubmit.disabled = true;
+    Zion.saveCalc(state.activeStockId, payload).then(function (id) {
+      var rec = Object.assign({}, payload, { id: Number(id) });
+      state.calc.intraday.push(rec);
+      renderCalcTables();
+      closeIntervalCalcModal();
+      toast('已保存：' + name + '（' + (info.total / 1e8).toFixed(2) + ' 亿）');
+    }).catch(function (e) {
+      toast('保存失败: ' + e.message);
+      console.error(e);
+    }).finally(function () {
+      els.intervalSubmit.disabled = false;
+    });
   }
 
   // ============== 新建股票 ==============
@@ -1562,6 +1717,18 @@
     els.calcModalTitle = document.getElementById('calcModalTitle');
     els.calcModalCancel = document.getElementById('calcModalCancel');
     els.calcModalSubmit = document.getElementById('calcModalSubmit');
+
+    // 按区间累加 modal
+    els.btnIntervalCalc = document.getElementById('btnIntervalCalc');
+    els.intervalModalMask = document.getElementById('intervalModalMask');
+    els.intervalDate = document.getElementById('intervalDate');
+    els.intervalStart = document.getElementById('intervalStart');
+    els.intervalEnd = document.getElementById('intervalEnd');
+    els.intervalResultValue = document.getElementById('intervalResultValue');
+    els.intervalResultMeta = document.getElementById('intervalResultMeta');
+    els.intervalTitle = document.getElementById('intervalTitle');
+    els.intervalCancel = document.getElementById('intervalCancel');
+    els.intervalSubmit = document.getElementById('intervalSubmit');
   }
 
   function bindHandlers() {
@@ -1572,8 +1739,11 @@
       if (e.target === els.modalMask) closeModal();
     });
     document.addEventListener('keydown', function (e) {
-      // ESC：保存计算 modal > 新建股票 modal > 草稿浮框 > 分时浮窗
+      // ESC：区间累加 modal > 保存计算 modal > 新建股票 modal > 草稿浮框 > 分时浮窗
       if (e.key === 'Escape') {
+        if (els.intervalModalMask && els.intervalModalMask.classList.contains('show')) {
+          closeIntervalCalcModal(); return;
+        }
         if (els.calcModalMask && els.calcModalMask.classList.contains('show')) {
           closeCalcModal(); return;
         }
