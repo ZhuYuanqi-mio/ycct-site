@@ -84,20 +84,24 @@
   // 按日期范围设视窗。startDate / endDate 形如 'YYYY-MM-DD'；
   // 自动选取 dates 数组中 >= startDate 的最早索引 与 <= endDate 的最晚索引。
   YcctChart.prototype.setViewByDateRange = function (startDate, endDate) {
-    if (!this.opts.data) return;
+    if (!this.opts.data) return null;
     var dates = this.opts.data.dates;
     var n = dates.length;
-    if (n === 0) return;
+    if (n === 0) return null;
+    // 自动顺序
+    if (startDate && endDate && startDate > endDate) {
+      var t = startDate; startDate = endDate; endDate = t;
+    }
     var s = -1, e = -1;
     for (var i = 0; i < n; i++) {
       if (s < 0 && dates[i] >= startDate) s = i;
       if (dates[i] <= endDate) e = i;
     }
-    if (s < 0) s = 0;
-    if (e < 0) e = n - 1;
+    var clampedStart = false, clampedEnd = false;
+    if (s < 0) { s = 0; clampedStart = true; }                  // 起 早于全部数据
+    if (e < 0) { e = n - 1; clampedEnd = true; }                // 止 晚于全部数据
     if (s > e) { var tmp = s; s = e; e = tmp; }
     if (e - s + 1 < 8) {
-      // 凑足最小 8 天
       if (e + (8 - (e - s + 1)) <= n - 1) e = s + 7;
       else { e = n - 1; s = Math.max(0, n - 8); }
     }
@@ -105,6 +109,16 @@
     this.viewEnd = e;
     this.draw();
     if (this.opts.onView) this.opts.onView(this.getViewInfo());
+    return {
+      requestedStart: startDate,
+      requestedEnd: endDate,
+      actualStart: dates[s],
+      actualEnd: dates[e],
+      clampedStart: clampedStart || (startDate && dates[s] !== startDate && dates[s] > startDate),
+      clampedEnd:   clampedEnd   || (endDate   && dates[e] !== endDate   && dates[e] < endDate),
+      dataMin: dates[0],
+      dataMax: dates[n - 1]
+    };
   };
 
   // 直接设定视窗天数（输入框场景）。clamp 到 [8, total]

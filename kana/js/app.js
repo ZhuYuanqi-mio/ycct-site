@@ -1607,18 +1607,30 @@
       if (state.chart) state.chart.zoomBy(1);    // 多看 1 天
     });
 
-    // 起止日期：change 时应用
+    // 起止日期：change / input 时都应用（兼容手动输入与日期选择）
     if (els.viewDateStart && els.viewDateEnd) {
+      var lastDateRangeKey = '';
       var applyDateRange = function () {
         if (!state.chart) return;
         var s = els.viewDateStart.value;
         var e = els.viewDateEnd.value;
         if (!s || !e) return;
+        // 两个 input 都需要是 10 位完整日期才应用，避免边输边触发
+        if (s.length !== 10 || e.length !== 10) return;
         if (s > e) { var tmp = s; s = e; e = tmp; }
-        state.chart.setViewByDateRange(s, e);
+        var key = s + '~' + e;
+        if (key === lastDateRangeKey) return;
+        lastDateRangeKey = key;
+        var ret = state.chart.setViewByDateRange(s, e);
+        if (ret && (ret.clampedStart || ret.clampedEnd)) {
+          var msg = '股票数据范围 ' + ret.dataMin + ' ~ ' + ret.dataMax + '，已按可用范围显示';
+          toast(msg, 2400);
+        }
       };
       els.viewDateStart.addEventListener('change', applyDateRange);
       els.viewDateEnd.addEventListener('change', applyDateRange);
+      els.viewDateStart.addEventListener('input', applyDateRange);
+      els.viewDateEnd.addEventListener('input', applyDateRange);
     }
 
     // 天数输入框：Enter / 失焦时应用
