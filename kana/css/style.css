@@ -281,6 +281,22 @@ body {
   background: #1f2937;
   border-color: #1f2937;
 }
+.btn-dark {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+  font-weight: 600;
+  padding: 6px 18px;
+}
+.btn-dark:hover {
+  background: #000;
+  border-color: #000;
+}
+.btn-dark:disabled {
+  background: #6b7280;
+  border-color: #6b7280;
+  cursor: not-allowed;
+}
 .btn-danger {
   color: var(--danger);
   border-color: var(--border);

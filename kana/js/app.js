@@ -720,7 +720,7 @@
     Zion.saveMarkers(state.activeStockId, dates, dp).then(function () {
       // 同时也缓存到 localStorage 作为备份
       setSaved(state.activeStockId, { markers: dates, dp: dp });
-      toast('已保存 ' + dates.length + ' 条标注 + 显示设置');
+      toast('已保存：' + dates.length + ' 条标注 + 显示设置');
     }).catch(function (e) {
       toast('保存失败: ' + e.message);
       console.error(e);
