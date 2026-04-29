@@ -1607,16 +1607,20 @@
       if (state.chart) state.chart.zoomBy(1);    // 多看 1 天
     });
 
-    // 起止日期：change / input 时都应用（兼容手动输入与日期选择）
+    // 起止日期：仅 change 时应用（避免边输边触发把 "2025" 提前当 "0025"）
     if (els.viewDateStart && els.viewDateEnd) {
       var lastDateRangeKey = '';
+      var validIsoDate = function (s) {
+        // 'YYYY-MM-DD' 且年份 ≥ 1990
+        if (!s || s.length !== 10) return false;
+        var y = parseInt(s.slice(0, 4), 10);
+        return y >= 1990 && y <= 2999;
+      };
       var applyDateRange = function () {
         if (!state.chart) return;
         var s = els.viewDateStart.value;
         var e = els.viewDateEnd.value;
-        if (!s || !e) return;
-        // 两个 input 都需要是 10 位完整日期才应用，避免边输边触发
-        if (s.length !== 10 || e.length !== 10) return;
+        if (!validIsoDate(s) || !validIsoDate(e)) return;   // 中间态/异常值直接忽略
         if (s > e) { var tmp = s; s = e; e = tmp; }
         var key = s + '~' + e;
         if (key === lastDateRangeKey) return;
@@ -1629,8 +1633,6 @@
       };
       els.viewDateStart.addEventListener('change', applyDateRange);
       els.viewDateEnd.addEventListener('change', applyDateRange);
-      els.viewDateStart.addEventListener('input', applyDateRange);
-      els.viewDateEnd.addEventListener('input', applyDateRange);
     }
 
     // 天数输入框：Enter / 失焦时应用
