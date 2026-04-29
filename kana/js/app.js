@@ -2099,6 +2099,24 @@
         _redrawIntervalChartOnly();
       }
     });
+
+    // 键盘左右键：在 hover 状态下精确切换下一个/上一个时间点
+    window.addEventListener('keydown', function (e) {
+      if (!els.intervalModalMask || !els.intervalModalMask.classList.contains('show')) return;
+      if (_intervalHoverIdx < 0) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      var c = _intervalChartCtx;
+      if (!c) return;
+      var dir = e.key === 'ArrowLeft' ? -1 : 1;
+      var idx = _intervalHoverIdx + dir;
+      while (idx >= 0 && idx < c.ticks.length && c.ticks[idx].p == null) idx += dir;
+      if (idx < 0 || idx >= c.ticks.length) return;
+      _intervalHoverIdx = idx;
+      e.preventDefault();
+      _redrawIntervalChartOnly();
+    });
   }
 
   // 仅重绘分时图（不重算成交额），用于 hover 时刷新十字光标层
