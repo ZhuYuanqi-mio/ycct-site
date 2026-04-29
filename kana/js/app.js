@@ -1000,9 +1000,9 @@
   }
 
   function renderCalcTables() {
-    // 显示/隐藏整个面板：当前股票有 K 线时显示
+    // 整张计算卡片：仅当「计算模式」开启 + 已选股票时显示
     if (!els.calcSec) return;
-    if (!state.activeStockId) {
+    if (!state.activeStockId || !state.calc.mode) {
       els.calcSec.style.display = 'none';
       return;
     }
@@ -1102,14 +1102,15 @@
 
     els.calcMode.addEventListener('change', function () {
       state.calc.mode = els.calcMode.checked;
-      // 关闭时丢弃所有未保存草稿，避免误以为还在累加
+      // 关闭时丢弃所有未保存草稿（防止用户误以为还在累加）
       if (!state.calc.mode) {
         state.calc.dailyDraft = null;
         state.calc.intradayDraft = null;
         refreshDailyChartCalcKeys();
         refreshIntradayChartCalcKeys();
-        renderCalcTables();
       }
+      // 不论开/关都重渲：开 → 显示卡片；关 → 隐藏卡片
+      renderCalcTables();
     });
 
     els.calcSec.addEventListener('click', function (e) {
