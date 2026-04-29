@@ -1630,6 +1630,7 @@
   // 拖动状态（在外层闭包，给事件用）
   var _intervalChartCtx = null;     // 最近一次绘制的 layout
   var _intervalDrag = null;         // {which:'start'|'end', startX:number}
+  var _intervalHoverIdx = -1;       // 当前悬浮的 tick 索引；-1 表示未悬浮
 
   // 弹窗右侧分时图（轻量版，与双击日 K 出现的分时浮窗保持一致风格：
   // 蓝色折线 + 昨收虚线参考 + 不画面积 + Y 轴包含昨收）
@@ -1867,6 +1868,122 @@
       }
     }
 
+    // 7) 鼠标悬浮十字光标层（最后画，避免被其它图层覆盖）
+    if (_intervalHoverIdx >= 0 && _intervalHoverIdx < ticks.length
+        && ticks[_intervalHoverIdx] && ticks[_intervalHoverIdx].p != null) {
+      var hi = _intervalHoverIdx;
+      var hp = ticks[hi].p;
+      var hx = xOfIdx(hi);
+      var hy = yOfPrice(hp);
+
+      // 7.1 淡蓝色十字虚线
+      ctx.save();
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(hx, padT);
+      ctx.lineTo(hx, padT + plotH);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(padL, hy);
+      ctx.lineTo(W - padR, hy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 7.2 hover 圆点
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.arc(hx, hy, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      function _drawPill(x, y, w, h, fillColor, text, textAlignH) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        ctx.fillStyle = fillColor;
+        ctx.textBaseline = 'middle';
+        if (textAlignH === 'center') {
+          ctx.textAlign = 'center';
+          ctx.fillText(text, x + w / 2, y + h / 2);
+        } else {
+          ctx.textAlign = 'left';
+          ctx.fillText(text, x + 5, y + h / 2);
+        }
+      }
+
+      // 7.3 右侧涨跌幅（加粗白底）
+      if (pcRef != null) {
+        var hPct = (hp - pcRef) / pcRef * 100;
+        var pColor = hPct > 0.005 ? '#dc2626'
+                    : (hPct < -0.005 ? '#16a34a' : '#374151');
+        var pTxt = (hPct > 0 ? '+' : '') + hPct.toFixed(2) + '%';
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        var pW = ctx.measureText(pTxt).width;
+        var pBoxW = pW + 10;
+        var pBoxH = 16;
+        var pBoxX = W - padR + 4;
+        var pBoxY = hy - pBoxH / 2;
+        if (pBoxX + pBoxW > W) pBoxX = W - pBoxW - 1;
+        if (pBoxY < 0) pBoxY = 0;
+        if (pBoxY + pBoxH > H) pBoxY = H - pBoxH;
+        _drawPill(pBoxX, pBoxY, pBoxW, pBoxH, pColor, pTxt, 'left');
+      }
+
+      // 7.4 左侧价格（加粗白底，颜色随相对昨收）
+      var prTxt = hp.toFixed(2);
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      var prW = ctx.measureText(prTxt).width;
+      var prBoxW = prW + 10;
+      var prBoxH = 16;
+      var prBoxX = padL - prBoxW - 4;
+      var prBoxY = hy - prBoxH / 2;
+      if (prBoxX < 0) prBoxX = 0;
+      if (prBoxY < 0) prBoxY = 0;
+      if (prBoxY + prBoxH > H) prBoxY = H - prBoxH;
+      var prColor = '#1f2937';
+      if (pcRef != null) {
+        if (hp > pcRef) prColor = '#dc2626';
+        else if (hp < pcRef) prColor = '#16a34a';
+      }
+      _drawPill(prBoxX, prBoxY, prBoxW, prBoxH, prColor, prTxt, 'left');
+
+      // 7.5 X 轴下方时间（黑色加粗 + 白底）
+      var tTxt = ticks[hi].t || '';
+      if (tTxt) {
+        ctx.font = 'bold 10px -apple-system, sans-serif';
+        var tW = ctx.measureText(tTxt).width;
+        var tBoxW = tW + 12;
+        var tBoxH = 16;
+        var tBoxX = hx - tBoxW / 2;
+        var tBoxY = padT + plotH + 4;
+        if (tBoxX < 0) tBoxX = 0;
+        if (tBoxX + tBoxW > W) tBoxX = W - tBoxW;
+        if (tBoxY + tBoxH > H) tBoxY = H - tBoxH;
+        _drawPill(tBoxX, tBoxY, tBoxW, tBoxH, '#111827', tTxt, 'center');
+      }
+
+      // 7.6 plot 顶部内侧成交额（红色加粗 + 白底，单位「亿」）
+      var aVal = Number(ticks[hi].a);
+      if (isFinite(aVal) && aVal > 0) {
+        var aBillion = aVal / 1e8;
+        var aDigits = aBillion >= 1 ? 2 : (aBillion >= 0.01 ? 3 : 4);
+        var aTxt = aBillion.toFixed(aDigits) + ' 亿';
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        var aW = ctx.measureText(aTxt).width;
+        var aBoxW = aW + 12;
+        var aBoxH = 16;
+        var aBoxX = hx - aBoxW / 2;
+        var aBoxY = padT + 2;
+        if (aBoxX < 0) aBoxX = 0;
+        if (aBoxX + aBoxW > W) aBoxX = W - aBoxW;
+        _drawPill(aBoxX, aBoxY, aBoxW, aBoxH, '#dc2626', aTxt, 'center');
+      }
+    }
+
     // 保存 layout，供拖动用
     var rngForCtx = (startT && endT) ? findTimeRange(startT, endT) : [-1, -1];
     _intervalChartCtx = {
@@ -1931,13 +2048,28 @@
           els.intervalEnd.value = t;
           c.endIdx = idx;
         }
+        // 拖动中临时清掉 hover，避免十字光标抢镜
+        _intervalHoverIdx = -1;
         // 立即重绘（不重新拉数据，但要重算总额，所以走 recalcInterval 的简化路径）
         _recalcIntervalUseCachedTicks();
         return;
       }
       // 非拖动：检测命中并改鼠标样式
       var hit = _hitTestIntervalLine(px);
-      canvas.style.cursor = hit ? 'ew-resize' : '';
+      // hover idx：在 plot 区内，且对应 tick 有 price
+      var newHover = -1;
+      if (px >= c.padL && px <= c.padL + c.plotW) {
+        var hIdx = c.pxToIdx(px);
+        // 跳过 p 为 null 的 tick（向后找）
+        var ticksH = c.ticks;
+        while (hIdx >= 0 && hIdx < ticksH.length && ticksH[hIdx].p == null) hIdx++;
+        if (hIdx >= 0 && hIdx < ticksH.length) newHover = hIdx;
+      }
+      if (newHover !== _intervalHoverIdx) {
+        _intervalHoverIdx = newHover;
+        _redrawIntervalChartOnly();
+      }
+      canvas.style.cursor = hit ? 'ew-resize' : (_intervalHoverIdx >= 0 ? 'crosshair' : '');
     });
 
     canvas.addEventListener('mousedown', function (e) {
@@ -1962,7 +2094,27 @@
     window.addEventListener('mouseup', endDrag);
     canvas.addEventListener('mouseleave', function () {
       if (!_intervalDrag) canvas.style.cursor = '';
+      if (_intervalHoverIdx !== -1) {
+        _intervalHoverIdx = -1;
+        _redrawIntervalChartOnly();
+      }
     });
+  }
+
+  // 仅重绘分时图（不重算成交额），用于 hover 时刷新十字光标层
+  function _redrawIntervalChartOnly() {
+    var c = _intervalChartCtx;
+    if (!c) return;
+    var dayIdx = (state.calc._intervalLoaded && state.calc._intervalLoaded.dayIdx);
+    var prevClose = null;
+    if (dayIdx != null && dayIdx > 0
+        && state.klineData && state.klineData.close
+        && state.klineData.close[dayIdx - 1] != null) {
+      prevClose = state.klineData.close[dayIdx - 1];
+    }
+    var startT = els.intervalStart.value || null;
+    var endT = els.intervalEnd.value || null;
+    drawIntervalChart(c.ticks, startT, endT, prevClose);
   }
 
   // 拖动竖线时，不重新拉 ticks，直接基于 _intervalChartCtx 里的 ticks 重算 + 重绘
