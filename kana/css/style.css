@@ -645,6 +645,9 @@ input.fs-input:focus {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-input);
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
 }
 .calc-table {
   border-collapse: collapse;
@@ -652,7 +655,6 @@ input.fs-input:focus {
   font-variant-numeric: tabular-nums;
   table-layout: fixed;
   width: max-content;
-  min-width: 100%;
 }
 .calc-table col.calc-col-label { width: 88px; }
 .calc-table col.calc-col-data  { width: 120px; }
