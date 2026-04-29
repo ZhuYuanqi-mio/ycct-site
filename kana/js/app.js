@@ -1616,7 +1616,10 @@
       els.intervalResultValue.textContent = (total / 1e8).toFixed(2) + ' 亿元';
       els.intervalResultMeta.textContent = state.klineData.dates[dayIdx] +
         '  ' + startT + ' ~ ' + endT + '  共 ' + n + ' 个分时点';
-      drawIntervalChart(ticks, startT, endT);
+      // 拿昨收：dayIdx-1 的 close（与双击日 K 弹出的分时浮窗保持一致）
+      var prevClose = (dayIdx > 0 && state.klineData.close[dayIdx - 1] != null)
+        ? state.klineData.close[dayIdx - 1] : null;
+      drawIntervalChart(ticks, startT, endT, prevClose);
     }).catch(function (e) {
       els.intervalResultValue.textContent = '加载失败';
       els.intervalResultMeta.textContent = e.message || String(e);
@@ -1629,8 +1632,9 @@
     });
   }
 
-  // 弹窗右侧分时图（轻量版）
-  function drawIntervalChart(ticks, startT, endT) {
+  // 弹窗右侧分时图（轻量版，与双击日 K 出现的分时浮窗保持一致风格：
+  // 蓝色折线 + 昨收虚线参考 + 不画面积 + Y 轴包含昨收）
+  function drawIntervalChart(ticks, startT, endT, prevClose) {
     var canvas = els.intervalChart;
     var wrap = els.intervalChartWrap;
     if (!canvas || !wrap) return;
@@ -1651,18 +1655,22 @@
     }
     if (els.intervalChartEmpty) els.intervalChartEmpty.style.display = 'none';
 
-    var padL = 50, padR = 14, padT = 14, padB = 24;
+    var padL = 56, padR = 14, padT = 14, padB = 24;
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     if (plotW <= 0 || plotH <= 0) return;
 
-    // 价格区间
+    // 价格区间：包含 prevClose 昨收（与 IntradayChart 一致）
     var lo = Infinity, hi = -Infinity;
     for (var i = 0; i < ticks.length; i++) {
       var p = ticks[i].p;
       if (p == null) continue;
       if (p < lo) lo = p;
       if (p > hi) hi = p;
+    }
+    if (prevClose != null && isFinite(prevClose)) {
+      if (prevClose < lo) lo = prevClose;
+      if (prevClose > hi) hi = prevClose;
     }
     if (!isFinite(lo)) return;
     var pad = (hi - lo) * 0.08 || (lo * 0.005) || 0.02;
@@ -1687,7 +1695,7 @@
       return [si, ei];
     }
 
-    // 1) 黄色背景：选中区间
+    // 1) 黄色背景：选中区间（先画在最底层）
     if (startT && endT) {
       var range = findTimeRange(startT, endT);
       if (range[0] >= 0 && range[1] >= range[0]) {
@@ -1698,13 +1706,13 @@
       }
     }
 
-    // 2) Y 网格
+    // 2) Y 网格 + 价格刻度（5 档）
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
     for (var k = 0; k <= 4; k++) {
       var gy = padT + plotH * k / 4;
       var gv = hi - span * k / 4;
-      ctx.strokeStyle = '#f3f4f6';
+      ctx.strokeStyle = '#e5e7eb';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(padL, gy);
@@ -1712,40 +1720,43 @@
       ctx.stroke();
       ctx.fillStyle = '#9ca3af';
       ctx.textAlign = 'right';
-      ctx.fillText(gv.toFixed(2), padL - 4, gy);
+      ctx.fillText(gv.toFixed(2), padL - 6, gy + 0.5);
     }
 
-    // 3) 折线 + 面积
-    var first = null, last = null;
-    for (var fi = 0; fi < ticks.length; fi++) if (ticks[fi].p != null) { first = ticks[fi].p; break; }
-    for (var li = ticks.length - 1; li >= 0; li--) if (ticks[li].p != null) { last = ticks[li].p; break; }
-    var trendColor = (last != null && first != null && last < first) ? '#22c55e' : '#ef4444';
+    // 3) 昨收水平参考线（虚线）
+    if (prevClose != null && isFinite(prevClose)) {
+      var yPC = yOfPrice(prevClose);
+      ctx.strokeStyle = '#9ca3af';
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, yPC);
+      ctx.lineTo(W - padR, yPC);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '9px -apple-system, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('昨收 ' + prevClose.toFixed(2), padL + 4, yPC - 2);
+    }
 
-    ctx.strokeStyle = trendColor;
-    ctx.lineWidth = 1.4;
+    // 4) 蓝色分时折线（与 IntradayChart 一致：#2563eb，无面积填充）
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 1.2;
     ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
     var moved = false;
-    var lastX = padL, lastY = padT + plotH;
     for (var j = 0; j < ticks.length; j++) {
       if (ticks[j].p == null) continue;
       var xx = xOfIdx(j), yy = yOfPrice(ticks[j].p);
       if (!moved) { ctx.moveTo(xx, yy); moved = true; }
       else ctx.lineTo(xx, yy);
-      lastX = xx; lastY = yy;
     }
     ctx.stroke();
 
-    // 面积（半透明）
-    ctx.lineTo(lastX, padT + plotH);
-    ctx.lineTo(padL, padT + plotH);
-    ctx.closePath();
-    ctx.globalAlpha = 0.10;
-    ctx.fillStyle = trendColor;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // 4) 起止橙色竖线 + 时间标签
+    // 5) 起止橙色竖线 + 时间标签
     if (startT && endT) {
       var rng = findTimeRange(startT, endT);
       ctx.strokeStyle = '#f59e0b';
@@ -1770,7 +1781,7 @@
       }
     }
 
-    // 5) X 轴常规时间标签（避开起止橙色标签的位置不重叠）
+    // 6) X 轴常规时间标签
     var stdLabels = ['09:30', '10:30', '11:30', '13:30', '14:30'];
     ctx.fillStyle = '#9ca3af';
     ctx.font = '10px -apple-system, sans-serif';
