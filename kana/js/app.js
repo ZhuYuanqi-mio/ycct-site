@@ -1478,6 +1478,8 @@
       els.intervalTitle.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') submitIntervalCalc();
       });
+      // 分时图竖线拖动（只绑一次）
+      _bindIntervalChartDragHandlers();
     }
   }
 
@@ -1632,6 +1634,10 @@
     });
   }
 
+  // 拖动状态（在外层闭包，给事件用）
+  var _intervalChartCtx = null;     // 最近一次绘制的 layout
+  var _intervalDrag = null;         // {which:'start'|'end', startX:number}
+
   // 弹窗右侧分时图（轻量版，与双击日 K 出现的分时浮窗保持一致风格：
   // 蓝色折线 + 昨收虚线参考 + 不画面积 + Y 轴包含昨收）
   function drawIntervalChart(ticks, startT, endT, prevClose) {
@@ -1651,6 +1657,7 @@
 
     if (!ticks || ticks.length === 0) {
       if (els.intervalChartEmpty) els.intervalChartEmpty.style.display = '';
+      _intervalChartCtx = null;
       return;
     }
     if (els.intervalChartEmpty) els.intervalChartEmpty.style.display = 'none';
@@ -1796,6 +1803,130 @@
         }
       }
     }
+
+    // 保存 layout，供拖动用
+    var rngForCtx = (startT && endT) ? findTimeRange(startT, endT) : [-1, -1];
+    _intervalChartCtx = {
+      ticks: ticks,
+      padL: padL, padR: padR, padT: padT, padB: padB,
+      plotW: plotW, plotH: plotH, W: W, H: H,
+      startIdx: rngForCtx[0],
+      endIdx: rngForCtx[1],
+      xOfIdx: xOfIdx,
+      pxToIdx: function (px) {
+        if (ticks.length <= 1) return 0;
+        var ratio = (px - padL) / plotW;
+        if (ratio < 0) ratio = 0;
+        if (ratio > 1) ratio = 1;
+        var idx = Math.round(ratio * (ticks.length - 1));
+        if (idx < 0) idx = 0;
+        if (idx > ticks.length - 1) idx = ticks.length - 1;
+        return idx;
+      }
+    };
+    // 鼠标位置游标更新（外部 mousemove 时调用 _updateIntervalChartCursor）
+  }
+
+  // ====== 分时图竖线拖动支持 ======
+  function _hitTestIntervalLine(px) {
+    var c = _intervalChartCtx;
+    if (!c) return null;
+    if (px < c.padL - 12 || px > c.padL + c.plotW + 12) return null;
+    var TOL = 8;
+    var sX = c.startIdx >= 0 ? c.xOfIdx(c.startIdx) : -999;
+    var eX = c.endIdx >= 0 ? c.xOfIdx(c.endIdx) : -999;
+    var dS = Math.abs(px - sX);
+    var dE = Math.abs(px - eX);
+    if (dS <= TOL && dS <= dE) return 'start';
+    if (dE <= TOL) return 'end';
+    return null;
+  }
+
+  function _bindIntervalChartDragHandlers() {
+    var canvas = els.intervalChart;
+    if (!canvas) return;
+
+    canvas.addEventListener('mousemove', function (e) {
+      var c = _intervalChartCtx;
+      if (!c) { canvas.style.cursor = ''; return; }
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      if (_intervalDrag) {
+        var idx = c.pxToIdx(px);
+        var ticks = c.ticks;
+        var t = (ticks[idx] && ticks[idx].t) || null;
+        if (!t) return;
+        if (_intervalDrag.which === 'start') {
+          // 不能超过 endIdx
+          if (c.endIdx >= 0 && idx > c.endIdx) idx = c.endIdx;
+          t = ticks[idx].t;
+          els.intervalStart.value = t;
+          c.startIdx = idx;
+        } else {
+          if (c.startIdx >= 0 && idx < c.startIdx) idx = c.startIdx;
+          t = ticks[idx].t;
+          els.intervalEnd.value = t;
+          c.endIdx = idx;
+        }
+        // 立即重绘（不重新拉数据，但要重算总额，所以走 recalcInterval 的简化路径）
+        _recalcIntervalUseCachedTicks();
+        return;
+      }
+      // 非拖动：检测命中并改鼠标样式
+      var hit = _hitTestIntervalLine(px);
+      canvas.style.cursor = hit ? 'ew-resize' : '';
+    });
+
+    canvas.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      var c = _intervalChartCtx;
+      if (!c) return;
+      var rect = canvas.getBoundingClientRect();
+      var px = e.clientX - rect.left;
+      var hit = _hitTestIntervalLine(px);
+      if (!hit) return;
+      _intervalDrag = { which: hit };
+      e.preventDefault();
+    });
+
+    function endDrag() {
+      if (!_intervalDrag) return;
+      _intervalDrag = null;
+      canvas.style.cursor = '';
+      // 触发 change 让 recalcIntervalDebounced 走完整流程（其实已经在拖动中实时算好了，这里只是兜底）
+    }
+
+    window.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('mouseleave', function () {
+      if (!_intervalDrag) canvas.style.cursor = '';
+    });
+  }
+
+  // 拖动竖线时，不重新拉 ticks，直接基于 _intervalChartCtx 里的 ticks 重算 + 重绘
+  function _recalcIntervalUseCachedTicks() {
+    var c = _intervalChartCtx;
+    if (!c) return;
+    var ticks = c.ticks;
+    var startT = els.intervalStart.value;
+    var endT = els.intervalEnd.value;
+    if (!startT || !endT) return;
+    if (startT > endT) { var tmp = startT; startT = endT; endT = tmp; }
+    var total = 0, n = 0;
+    for (var i = 0; i < ticks.length; i++) {
+      var t = ticks[i].t;
+      if (!t) continue;
+      if (t >= startT && t <= endT) { total += Number(ticks[i].a) || 0; n++; }
+    }
+    var dayIdx = (state.calc._intervalLoaded && state.calc._intervalLoaded.dayIdx) || 0;
+    var date = state.klineData.dates[dayIdx];
+    state.calc._intervalLoaded = {
+      dayIdx: dayIdx, date: date, startT: startT, endT: endT, total: total, n: n
+    };
+    els.intervalResultValue.textContent = (total / 1e8).toFixed(2) + ' 亿元';
+    els.intervalResultMeta.textContent = date + '  ' + startT + ' ~ ' + endT + '  共 ' + n + ' 个分时点';
+    var prevClose = (dayIdx > 0 && state.klineData.close[dayIdx - 1] != null)
+      ? state.klineData.close[dayIdx - 1] : null;
+    drawIntervalChart(ticks, startT, endT, prevClose);
   }
 
   function submitIntervalCalc() {
