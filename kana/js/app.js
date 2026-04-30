@@ -1818,21 +1818,28 @@
     ctx.stroke();
     if (vMax > 0) {
       var barW = Math.max(1, (plotW / Math.max(1, ticks.length - 1)) * 0.7);
+      // 量柱颜色采用同花顺规则：当前分钟收盘价 vs 上一分钟收盘价
+      // 涨红 / 跌绿 / 平灰；首个有效 tick 与昨收比较（无昨收时取灰）
+      var lastValidP = null;
       for (var bi = 0; bi < ticks.length; bi++) {
         var vol = Number(ticks[bi].v);
-        if (!isFinite(vol) || vol <= 0) continue;
         var bp = ticks[bi].p;
-        var bColor;
-        if (pcRef != null && bp != null) {
-          bColor = bp > pcRef ? '#dc2626' : (bp < pcRef ? '#16a34a' : '#9ca3af');
-        } else {
-          bColor = '#2563eb';
+        if (!isFinite(vol) || vol <= 0) {
+          if (bp != null) lastValidP = bp;
+          continue;
+        }
+        var refP = lastValidP != null ? lastValidP : pcRef;
+        var bColor = '#9ca3af';
+        if (refP != null && bp != null) {
+          if (bp > refP) bColor = '#dc2626';
+          else if (bp < refP) bColor = '#16a34a';
         }
         var bx = xOfIdx(bi);
         var bh = plotVolH * (vol / vMax);
         if (bh < 1) bh = 1;
         ctx.fillStyle = bColor;
         ctx.fillRect(bx - barW / 2, volBotY - bh, barW, bh);
+        if (bp != null) lastValidP = bp;
       }
       // 量柱左右轴刻度（顶 = vMax / 中 = vMax/2 / 底 = "万"）
       var unitDiv = 1e4;
