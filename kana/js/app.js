@@ -123,8 +123,17 @@
       return;
     }
     var html = '';
-    for (var i = 0; i < state.stocks.length; i++) {
-      var s = state.stocks[i];
+    // 过滤：pc_visible == false 的股票不出现在电脑端列表（手机端开关控制）
+    var visibleStocks = state.stocks.filter(function (s) {
+      return s.pc_visible !== false;
+    });
+    if (visibleStocks.length === 0) {
+      list.innerHTML = '<div class="empty-tip">暂无显示的股票<br>到 <code>/kana/m/</code> 打开手机端列表的开关</div>';
+      renderMobileStockMenu();
+      return;
+    }
+    for (var i = 0; i < visibleStocks.length; i++) {
+      var s = visibleStocks[i];
       var active = s.id === state.activeStockId ? ' active' : '';
       html += '<div class="stock-item' + active + '" data-id="' + s.id + '">' +
         '<div class="stock-name">' + escapeHtml(s.name) + '</div>' +
@@ -180,14 +189,15 @@
         ? current.name + ' (' + current.code + ')'
         : '选择股票';
     }
-    // 下拉项
-    if (state.stocks.length === 0) {
+    // 下拉项（过滤掉 pc_visible == false 的）
+    var visibleStocks = state.stocks.filter(function (s) { return s.pc_visible !== false; });
+    if (visibleStocks.length === 0) {
       els.mobileStockMenu.innerHTML = '<div class="menu-empty">还没有股票</div>';
       return;
     }
     var html = '';
-    for (var i = 0; i < state.stocks.length; i++) {
-      var s = state.stocks[i];
+    for (var i = 0; i < visibleStocks.length; i++) {
+      var s = visibleStocks[i];
       var active = s.id === state.activeStockId ? ' active' : '';
       html += '<div class="menu-item' + active + '" data-id="' + s.id + '">' +
         '<span class="menu-name">' + escapeHtml(s.name) + '</span>' +

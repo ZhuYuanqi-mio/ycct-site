@@ -23,7 +23,9 @@ window.YCCT_CONFIG = {
     // 9. 拉取某股全部计算（日 K + 分时混在一起）  入参 stock_id 出参 calcs_data
     listCalcs:    'https://zion-app.functorz.com/zero/mwLZrNj8qJA/callback/e12d1001-a33e-4bd1-9d74-e3fca4c55eef',
     // 10. 删除一条计算  入参 calc_id 出参 result
-    deleteCalc:   'https://zion-app.functorz.com/zero/mwLZrNj8qJA/callback/599862ea-d012-43e9-a4da-5314b937c809'
+    deleteCalc:   'https://zion-app.functorz.com/zero/mwLZrNj8qJA/callback/599862ea-d012-43e9-a4da-5314b937c809',
+    // 11. 切换某只股票在电脑端列表中的可见性  入参 stock_id, pc_visible(boolean) 出参 ok
+    setStockVisible: 'https://zion-app.functorz.com/zero/mwLZrNj8qJA/callback/21e8d7e4-2bf5-4fe1-8c05-5708511b0d63'
   },
   // 请求超时 ms
   timeout: 20000
