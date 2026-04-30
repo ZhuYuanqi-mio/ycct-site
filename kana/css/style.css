@@ -915,6 +915,9 @@ input.date-input:focus { border-color: var(--orange); background: #fff7ed; }
   vertical-align: 1px;
 }
 .calc-table .calc-del:hover { background: #fee2e2; color: #b91c1c; }
+/* 分时计算记录格子可点击查看 */
+.calc-table td[data-action="view-intraday-calc"] { cursor: pointer; }
+.calc-table td[data-action="view-intraday-calc"]:hover { background: #f3f4f6; }
 .calc-table .calc-draft-input {
   width: 90px;
   height: 22px;

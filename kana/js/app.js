@@ -411,7 +411,14 @@
     if (state.annotationMode) {
       toggleMarker(idx);
     } else {
-      openIntraday(idx);
+      // 关闭标注模式时：直接打开「按区间累加」弹窗，并自动开启计算开关
+      var dates = state.klineData && state.klineData.dates;
+      if (!dates || !dates[idx]) return;
+      if (els.calcMode && !els.calcMode.checked) {
+        els.calcMode.checked = true;
+        els.calcMode.dispatchEvent(new Event('change'));
+      }
+      openIntervalCalcModal({ dateStr: dates[idx] });
     }
   }
 
@@ -1271,14 +1278,22 @@
     for (var i = 0; i < saved.length; i++) {
       var c = saved[i];
       var srcDate = (c.source && c.source[0]) ? c.source[0].date : '';
-      tr1 += '<td>' + escapeHtml(c.calc_name) + typeTagHtml(c.calc_type) +
+      var dataAttrs = ' data-action="view-intraday-calc" data-id="' + c.id + '" title="点击查看分时区间"';
+      tr1 += '<td' + dataAttrs + '>' + escapeHtml(c.calc_name) + typeTagHtml(c.calc_type) +
         '<button class="calc-del" data-action="del-intraday" data-id="' + c.id + '" title="删除">×</button></td>';
-      tr2 += '<td>' + fmtIntradayCalcValue(c.calc_value, c.calc_type) + '</td>';
-      tr3 += '<td>' + shortDate(srcDate) + '</td>';
-      tr4 += '<td>' + timeRangeStr(c.source) + '</td>';
+      tr2 += '<td' + dataAttrs + '>' + fmtIntradayCalcValue(c.calc_value, c.calc_type) + '</td>';
+      tr3 += '<td' + dataAttrs + '>' + shortDate(srcDate) + '</td>';
+      tr4 += '<td' + dataAttrs + '>' + timeRangeStr(c.source) + '</td>';
     }
     tr1 += '</tr>'; tr2 += '</tr>'; tr3 += '</tr>'; tr4 += '</tr>';
     els.calcIntradayTable.innerHTML = buildColgroup(saved.length) + '<tbody>' + tr1 + tr2 + tr3 + tr4 + '</tbody>';
+  }
+
+  // 点击「分时计算记录」表格里的格子 → 打开计算弹窗预填充该条数据
+  function openSavedIntradayCalcView(calcId) {
+    var calc = state.calc.intraday.filter(function (c) { return +c.id === +calcId; })[0];
+    if (!calc) return;
+    openIntervalCalcModal({ sourceCalc: calc });
   }
 
   // ============== 草稿浮框 ==============
@@ -1424,6 +1439,8 @@
         deleteDailyCalc(+t.getAttribute('data-id'));
       } else if (action === 'del-intraday') {
         deleteIntradayCalc(+t.getAttribute('data-id'));
+      } else if (action === 'view-intraday-calc') {
+        openSavedIntradayCalcView(+t.getAttribute('data-id'));
       }
     });
 
@@ -1463,17 +1480,17 @@
 
     // ====== 「按区间累加」弹窗事件 ======
     if (els.btnIntervalCalc) {
-      els.btnIntervalCalc.addEventListener('click', openIntervalCalcModal);
+      els.btnIntervalCalc.addEventListener('click', function () { openIntervalCalcModal(); });
       els.intervalCancel.addEventListener('click', closeIntervalCalcModal);
       els.intervalSubmit.addEventListener('click', submitIntervalCalc);
       els.intervalModalMask.addEventListener('click', function (e) {
         if (e.target === els.intervalModalMask) closeIntervalCalcModal();
       });
-      // 任意输入变化都重算
+      // 任意输入变化都重算 + 检测保存按钮显隐
       ['change', 'input'].forEach(function (ev) {
-        els.intervalDate.addEventListener(ev, recalcIntervalDebounced);
-        els.intervalStart.addEventListener(ev, recalcIntervalDebounced);
-        els.intervalEnd.addEventListener(ev, recalcIntervalDebounced);
+        els.intervalDate.addEventListener(ev, function () { recalcIntervalDebounced(); updateIntervalSaveButton(); });
+        els.intervalStart.addEventListener(ev, function () { recalcIntervalDebounced(); updateIntervalSaveButton(); });
+        els.intervalEnd.addEventListener(ev, function () { recalcIntervalDebounced(); updateIntervalSaveButton(); });
       });
       els.intervalTitle.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') submitIntervalCalc();
@@ -1490,39 +1507,92 @@
     _intervalRecalcTimer = setTimeout(recalcInterval, 200);
   }
 
-  function openIntervalCalcModal() {
+  function openIntervalCalcModal(opts) {
+    opts = opts || {};
     if (!state.activeStockId) return toast('请先选择股票');
     if (!state.klineData || !state.klineData.dates || state.klineData.dates.length === 0) {
       return toast('当前股票没有 K 线数据');
     }
     var dates = state.klineData.dates;
-    // 默认选当前 hover 的日期 / 已打开分时的日期 / 最后一天
-    var defaultIdx = dates.length - 1;
-    if (state.intraday.open && state.intraday.dayIdx >= 0) {
-      defaultIdx = state.intraday.dayIdx;
+
+    // 预填充来源：sourceCalc（来自表格点击）→ 取它的日期/时间/标题
+    var src = opts.sourceCalc || null;
+    var srcDate = '';
+    var srcStart = '';
+    var srcEnd = '';
+    if (src && src.source && src.source.length > 0) {
+      srcDate = src.source[0].date || '';
+      var times = src.source.map(function (s) { return s.time; }).filter(Boolean).sort();
+      if (times.length > 0) {
+        srcStart = times[0];
+        srcEnd = times[times.length - 1];
+      }
+    }
+
+    // 决定默认日期
+    var dateStr = opts.dateStr || srcDate || '';
+    if (!dateStr || dates.indexOf(dateStr) < 0) {
+      var defaultIdx = dates.length - 1;
+      if (state.intraday.open && state.intraday.dayIdx >= 0) {
+        defaultIdx = state.intraday.dayIdx;
+      }
+      dateStr = dates[defaultIdx];
     }
     els.intervalDate.min = dates[0];
     els.intervalDate.max = dates[dates.length - 1];
-    els.intervalDate.value = dates[defaultIdx];
+    els.intervalDate.value = dateStr;
     if (els.intervalDateHint) {
       els.intervalDateHint.textContent =
         '（可直接键入；数据范围 ' + dates[0] + ' ~ ' + dates[dates.length - 1] + '）';
     }
-    els.intervalStart.value = '09:30';
-    els.intervalEnd.value = '11:30';
-    els.intervalTitle.value = '';
+    els.intervalStart.value = opts.startT || srcStart || '09:30';
+    els.intervalEnd.value = opts.endT || srcEnd || '11:30';
+    els.intervalTitle.value = opts.title || '';
     els.intervalResultValue.textContent = '—';
     if (els.intervalChartEmpty) {
       els.intervalChartEmpty.style.display = '';
       els.intervalChartEmpty.textContent = '加载分时数据 …';
     }
     state.calc._intervalLoaded = null;
+
+    // 记录初始值（用于判断是否被修改 → 决定保存按钮显示）
+    state.calc._intervalBaseline = {
+      date: els.intervalDate.value,
+      start: els.intervalStart.value,
+      end: els.intervalEnd.value
+    };
+    // 来自已有计算时初始隐藏保存按钮（未修改时不显示），其它情况下默认显示
+    state.calc._intervalFromSaved = !!src;
+    updateIntervalSaveButton();
+
     els.intervalModalMask.classList.add('show');
     // 等下一帧让 wrap 拿到正确的尺寸再画
     setTimeout(function () {
       els.intervalDate.focus();
       recalcInterval();
     }, 30);
+  }
+
+  // 根据当前是否被修改 + 来源，决定保存按钮显隐
+  function updateIntervalSaveButton() {
+    if (!els.intervalSubmit) return;
+    var fromSaved = !!state.calc._intervalFromSaved;
+    var base = state.calc._intervalBaseline;
+    var changed = false;
+    if (base) {
+      changed =
+        els.intervalDate.value !== base.date ||
+        els.intervalStart.value !== base.start ||
+        els.intervalEnd.value !== base.end;
+    }
+    var show = !fromSaved || changed;
+    els.intervalSubmit.style.display = show ? '' : 'none';
+    // 按钮文案：来自已有计算且被改过 → 提示是新建
+    if (fromSaved && changed) {
+      els.intervalSubmit.textContent = '另存为新计算';
+    } else {
+      els.intervalSubmit.textContent = '保存到分时计算';
+    }
   }
 
   function closeIntervalCalcModal() {
@@ -2237,6 +2307,7 @@
     var prevClose = (dayIdx > 0 && state.klineData.close[dayIdx - 1] != null)
       ? state.klineData.close[dayIdx - 1] : null;
     drawIntervalChart(ticks, startT, endT, prevClose);
+    updateIntervalSaveButton();
   }
 
   function submitIntervalCalc() {
@@ -2400,6 +2471,7 @@
     els.intervalEnd = document.getElementById('intervalEnd');
     els.intervalResultValue = document.getElementById('intervalResultValue');
     els.intervalTitle = document.getElementById('intervalTitle');
+    els.intervalTitleRow = document.getElementById('intervalTitleRow');
     els.intervalCancel = document.getElementById('intervalCancel');
     els.intervalSubmit = document.getElementById('intervalSubmit');
     els.intervalChartWrap = document.getElementById('intervalChartWrap');
