@@ -1522,6 +1522,7 @@
       els.btnIntervalCalc.addEventListener('click', function () { openIntervalCalcModal(); });
       els.intervalCancel.addEventListener('click', closeIntervalCalcModal);
       els.intervalSubmit.addEventListener('click', submitIntervalCalc);
+      if (els.intervalOverride) els.intervalOverride.addEventListener('click', overrideIntervalCalc);
       els.intervalModalMask.addEventListener('click', function (e) {
         if (e.target === els.intervalModalMask) closeIntervalCalcModal();
       });
@@ -1615,6 +1616,7 @@
     };
     // 来自已有计算时初始隐藏保存按钮（未修改时不显示），其它情况下默认显示
     state.calc._intervalFromSaved = !!src;
+    state.calc._intervalSourceCalc = src;
     updateIntervalSaveButton();
 
     els.intervalModalMask.classList.add('show');
@@ -1626,24 +1628,42 @@
   }
 
   // 根据当前是否被修改 + 来源，决定保存按钮显隐
+  // 规则：
+  //   1. 没 sourceCalc      → 只显示「保存到分时计算」
+  //   2. 有 sourceCalc，未改 → 都不显示
+  //   3. 有 sourceCalc，只改时间（日期不变）→ 「覆盖原计算」+「另存为新计算」
+  //   4. 有 sourceCalc，改了日期 → 只显示「另存为新计算」
   function updateIntervalSaveButton() {
     if (!els.intervalSubmit) return;
     var fromSaved = !!state.calc._intervalFromSaved;
     var base = state.calc._intervalBaseline;
-    var changed = false;
+    var dateChanged = false;
+    var timeChanged = false;
     if (base) {
-      changed =
-        els.intervalDate.value !== base.date ||
+      dateChanged = els.intervalDate.value !== base.date;
+      timeChanged =
         els.intervalStart.value !== base.start ||
         els.intervalEnd.value !== base.end;
     }
-    var show = !fromSaved || changed;
-    els.intervalSubmit.style.display = show ? '' : 'none';
-    // 按钮文案：来自已有计算且被改过 → 提示是新建
-    if (fromSaved && changed) {
-      els.intervalSubmit.textContent = '另存为新计算';
-    } else {
+    var anyChanged = dateChanged || timeChanged;
+    if (!fromSaved) {
+      // 来自工具栏 / 双击 K 线
+      els.intervalSubmit.style.display = '';
       els.intervalSubmit.textContent = '保存到分时计算';
+      if (els.intervalOverride) els.intervalOverride.style.display = 'none';
+      return;
+    }
+    // 来自表格点击（已有计算）
+    if (!anyChanged) {
+      els.intervalSubmit.style.display = 'none';
+      if (els.intervalOverride) els.intervalOverride.style.display = 'none';
+      return;
+    }
+    els.intervalSubmit.style.display = '';
+    els.intervalSubmit.textContent = '另存为新计算';
+    if (els.intervalOverride) {
+      // 只有日期不变才允许覆盖
+      els.intervalOverride.style.display = dateChanged ? 'none' : '';
     }
   }
 
@@ -2361,14 +2381,12 @@
     updateIntervalSaveButton();
   }
 
-  function submitIntervalCalc() {
+  function _buildIntervalCalcPayload(name) {
     var info = state.calc._intervalLoaded;
-    if (!info) return toast('请等待计算结果出现');
+    if (!info) return null;
     var klineId = state.klineData.klineIds ? state.klineData.klineIds[info.dayIdx] : null;
-    if (klineId == null) return toast('该日没有 kline_id，无法保存');
-    var name = (els.intervalTitle.value || '').trim();
-    if (!name) name = info.startT + '-' + info.endT + ' 成交额';
-    var payload = {
+    if (klineId == null) return null;
+    return {
       calc_name: name,
       calc_type: 'amount',
       calc_value: info.total,
@@ -2379,8 +2397,19 @@
         value: info.total
       }],
       scope: 'intraday',
-      intraday_kline_id: klineId
+      intraday_kline_id: klineId,
+      _klineId: klineId  // 内部用
     };
+  }
+
+  function submitIntervalCalc() {
+    var info = state.calc._intervalLoaded;
+    if (!info) return toast('请等待计算结果出现');
+    var name = (els.intervalTitle.value || '').trim();
+    if (!name) name = info.startT + '-' + info.endT + ' 成交额';
+    var payload = _buildIntervalCalcPayload(name);
+    if (!payload) return toast('该日没有 kline_id，无法保存');
+    delete payload._klineId;
     els.intervalSubmit.disabled = true;
     Zion.saveCalc(state.activeStockId, payload).then(function (id) {
       var rec = Object.assign({}, payload, { id: Number(id) });
@@ -2392,6 +2421,43 @@
       toast('保存失败: ' + e.message);
       console.error(e);
     }).finally(function () {
+      els.intervalSubmit.disabled = false;
+    });
+  }
+
+  // 「覆盖原计算」：先创建新记录、再删除旧记录（避免中间态丢数据）
+  // 标题：用户没填 → 沿用原标题
+  function overrideIntervalCalc() {
+    var info = state.calc._intervalLoaded;
+    var src = state.calc._intervalSourceCalc;
+    if (!info || !src) return toast('请等待计算结果出现');
+    var name = (els.intervalTitle.value || '').trim();
+    if (!name) name = src.calc_name || (info.startT + '-' + info.endT + ' 成交额');
+    var payload = _buildIntervalCalcPayload(name);
+    if (!payload) return toast('该日没有 kline_id，无法保存');
+    delete payload._klineId;
+    els.intervalOverride.disabled = true;
+    els.intervalSubmit.disabled = true;
+    var oldId = +src.id;
+    Zion.saveCalc(state.activeStockId, payload).then(function (newId) {
+      // 替换本地数组
+      var rec = Object.assign({}, payload, { id: Number(newId) });
+      state.calc.intraday = state.calc.intraday.filter(function (c) {
+        return +c.id !== oldId;
+      });
+      state.calc.intraday.push(rec);
+      // 后台异步删旧条；删除失败不影响前端体验，仅打印
+      Zion.deleteCalc(oldId).catch(function (err) {
+        console.warn('旧计算删除失败（不影响新记录已生效）：', err);
+      });
+      renderCalcTables();
+      closeIntervalCalcModal();
+      toast('已覆盖：' + name + '（' + (info.total / 1e8).toFixed(2) + ' 亿）');
+    }).catch(function (e) {
+      toast('覆盖失败: ' + e.message);
+      console.error(e);
+    }).finally(function () {
+      els.intervalOverride.disabled = false;
       els.intervalSubmit.disabled = false;
     });
   }
@@ -2530,6 +2596,7 @@
     els.intervalTitle = document.getElementById('intervalTitle');
     els.intervalTitleRow = document.getElementById('intervalTitleRow');
     els.intervalCancel = document.getElementById('intervalCancel');
+    els.intervalOverride = document.getElementById('intervalOverride');
     els.intervalSubmit = document.getElementById('intervalSubmit');
     els.intervalChartWrap = document.getElementById('intervalChartWrap');
     els.intervalChart = document.getElementById('intervalChart');
