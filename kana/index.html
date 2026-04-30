@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>股票日K线标注分析</title>
-  <link rel="stylesheet" href="css/style.css?v=20260430e">
+  <link rel="stylesheet" href="css/style.css?v=20260430f">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Crect x='17' y='14' width='8' height='36' fill='%23ef4444'/%3E%3Crect x='39' y='22' width='8' height='28' fill='none' stroke='%23ef4444' stroke-width='2'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -41,6 +41,10 @@
     </symbol>
     <symbol id="icon-flask" viewBox="0 0 16 16">
       <path d="M6 1h4M6.5 1v4.5L3 13a1 1 0 001 1.5h8a1 1 0 001-1.5L9.5 5.5V1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <symbol id="icon-settings" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
     </symbol>
     <symbol id="icon-copy" viewBox="0 0 16 16">
       <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/>
@@ -177,6 +181,10 @@
 
       <span class="grow"></span>
 
+      <button class="btn" id="btnSettings" type="button" title="日 K 显示设置（量柱 / 均量线）">
+        <svg class="ico"><use href="#icon-settings"/></svg>
+        设置
+      </button>
       <button class="btn btn-dark" id="btnSave" title="保存当前标注 + 显示设置">保存</button>
     </div>
 
@@ -331,12 +339,46 @@
   </div>
 </div>
 
+<!-- 显示设置 弹窗 -->
+<div class="modal-mask" id="settingsModalMask">
+  <div class="modal">
+    <h3>日 K 显示设置</h3>
+    <div class="settings-row">
+      <label class="switch">
+        <input type="checkbox" id="setShowVolumeBars" checked>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-label">量柱</span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <label class="switch">
+        <input type="checkbox" id="setShowMA5">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-label">均量线 MA5</span>
+        <span class="settings-hint" style="color:#f59e0b">— 黄色</span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <label class="switch">
+        <input type="checkbox" id="setShowMA10">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span class="switch-label">均量线 MA10</span>
+        <span class="settings-hint" style="color:#2563eb">— 蓝色</span>
+      </label>
+    </div>
+    <p class="settings-tip">设置保存在本机浏览器，所有股票通用</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="settingsClose" type="button">完成</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=20260430e"></script>
-<script src="js/zion.js?v=20260430e"></script>
-<script src="js/chart.js?v=20260430e"></script>
-<script src="js/app.js?v=20260430e"></script>
+<script src="config.js?v=20260430f"></script>
+<script src="js/zion.js?v=20260430f"></script>
+<script src="js/chart.js?v=20260430f"></script>
+<script src="js/app.js?v=20260430f"></script>
 </body>
 </html>

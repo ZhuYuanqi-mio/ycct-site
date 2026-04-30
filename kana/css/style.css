@@ -1486,3 +1486,22 @@ input[type=file].hidden-file { display: none; }
     bottom: 8px !important;
   }
 }
+
+/* 显示设置 弹窗 */
+#settingsModalMask .modal {
+  min-width: 320px;
+}
+#settingsModalMask .settings-row {
+  margin: 8px 0;
+  display: flex;
+  align-items: center;
+}
+#settingsModalMask .settings-hint {
+  margin-left: 6px;
+  font-size: 12px;
+}
+#settingsModalMask .settings-tip {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  color: #6b7280;
+}

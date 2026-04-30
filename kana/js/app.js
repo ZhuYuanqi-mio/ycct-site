@@ -31,6 +31,9 @@
     defaultViewSize: 20,             // 默认显示最近 20 个交易日
     viewByStock: {},                 // {stockId: {start, end}} 每只股票各自记忆
 
+    // 显示设置（全局，存 localStorage）
+    settings: { showVolumeBars: true, showMA5: false, showMA10: false },
+
     // 量/额累加计算
     calc: {
       mode: false,                   // 计算开关
@@ -76,6 +79,39 @@
     Object.assign(cur, patch);
     state.saved[stockId] = cur;
     saveLocal();
+  }
+
+  // ---------- 显示设置（全局，所有股票通用） ----------
+  var SETTINGS_KEY = 'ycct_chart_settings_v1';
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) Object.assign(state.settings, JSON.parse(raw));
+    } catch (e) {}
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings)); } catch (e) {}
+  }
+  // 把当前设置应用到 chart 实例（实时刷新）
+  function applyChartSettings() {
+    if (state.chart && state.chart.update) {
+      state.chart.update({
+        showVolumeBars: state.settings.showVolumeBars,
+        showMA5: state.settings.showMA5,
+        showMA10: state.settings.showMA10
+      });
+    }
+  }
+  function openSettingsModal() {
+    if (!els.settingsModalMask) return;
+    els.setShowVolumeBars.checked = !!state.settings.showVolumeBars;
+    els.setShowMA5.checked = !!state.settings.showMA5;
+    els.setShowMA10.checked = !!state.settings.showMA10;
+    els.settingsModalMask.classList.add('show');
+  }
+  function closeSettingsModal() {
+    if (!els.settingsModalMask) return;
+    els.settingsModalMask.classList.remove('show');
   }
 
   // ============== Sidebar 渲染 ==============
@@ -330,6 +366,9 @@
       dpVolume: dpOpts.dpVolume,
       volUnit: dpOpts.volUnit,
       fontSize: dpOpts.fontSize,
+      showVolumeBars: state.settings.showVolumeBars,
+      showMA5: state.settings.showMA5,
+      showMA10: state.settings.showMA10,
       onDblclick: onDayChartDblclick,
       onCellDblclick: onDailyCellDblclick,
       onCellRangeSelect: onDailyCellRangeSelect,
@@ -2414,6 +2453,12 @@
     els.btnClear = document.getElementById('btnClear');
     els.btnSelectAll = document.getElementById('btnSelectAll');
     els.btnSave = document.getElementById('btnSave');
+    els.btnSettings = document.getElementById('btnSettings');
+    els.settingsModalMask = document.getElementById('settingsModalMask');
+    els.settingsClose = document.getElementById('settingsClose');
+    els.setShowVolumeBars = document.getElementById('setShowVolumeBars');
+    els.setShowMA5 = document.getElementById('setShowMA5');
+    els.setShowMA10 = document.getElementById('setShowMA10');
     els.btnZoomIn = document.getElementById('btnZoomIn');     // -（少看 1 天）
     els.btnZoomOut = document.getElementById('btnZoomOut');   // +（多看 1 天）
     els.viewSizeInput = document.getElementById('viewSizeInput');
@@ -2498,14 +2543,40 @@
     els.modalMask.addEventListener('click', function (e) {
       if (e.target === els.modalMask) closeModal();
     });
+    // 显示设置弹窗
+    if (els.btnSettings) {
+      els.btnSettings.addEventListener('click', openSettingsModal);
+      els.settingsClose.addEventListener('click', closeSettingsModal);
+      els.settingsModalMask.addEventListener('click', function (e) {
+        if (e.target === els.settingsModalMask) closeSettingsModal();
+      });
+      els.setShowVolumeBars.addEventListener('change', function () {
+        state.settings.showVolumeBars = els.setShowVolumeBars.checked;
+        saveSettings();
+        applyChartSettings();
+      });
+      els.setShowMA5.addEventListener('change', function () {
+        state.settings.showMA5 = els.setShowMA5.checked;
+        saveSettings();
+        applyChartSettings();
+      });
+      els.setShowMA10.addEventListener('change', function () {
+        state.settings.showMA10 = els.setShowMA10.checked;
+        saveSettings();
+        applyChartSettings();
+      });
+    }
     document.addEventListener('keydown', function (e) {
-      // ESC：区间累加 modal > 保存计算 modal > 新建股票 modal > 草稿浮框 > 分时浮窗
+      // ESC：区间累加 modal > 保存计算 modal > 显示设置 modal > 新建股票 modal > 草稿浮框 > 分时浮窗
       if (e.key === 'Escape') {
         if (els.intervalModalMask && els.intervalModalMask.classList.contains('show')) {
           closeIntervalCalcModal(); return;
         }
         if (els.calcModalMask && els.calcModalMask.classList.contains('show')) {
           closeCalcModal(); return;
+        }
+        if (els.settingsModalMask && els.settingsModalMask.classList.contains('show')) {
+          closeSettingsModal(); return;
         }
         if (els.modalMask.classList.contains('show')) {
           closeModal(); return;
@@ -2697,6 +2768,7 @@
     bindElements();
     bindHandlers();
     loadLocal();
+    loadSettings();
 
     var isDemoMode = /[?&]demo=1\b/.test(location.search);
     if (isDemoMode) {

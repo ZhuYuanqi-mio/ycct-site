@@ -393,7 +393,12 @@
     this._chartBottom = this._chartTop + this._plotH;
 
     // 量柱区：高度 = 4 行（涨跌幅/价格/成交额/成交量）的总高
-    if (hasVolume) {
+    // 受 opts.showVolumeBars 控制，默认 true
+    var showVol = (this.opts.showVolumeBars !== false) && hasVolume;
+    this._showVolumeBars = showVol;
+    this._showMA5 = !!this.opts.showMA5 && showVol;
+    this._showMA10 = !!this.opts.showMA10 && showVol;
+    if (showVol) {
       this._volTop = this._chartBottom + 8;
       this._volH = 4 * this._rowH;
       this._volBottom = this._volTop + this._volH;
@@ -516,7 +521,7 @@
     }
 
     // 量柱区（同花顺规则：close >= open 涨红、close < open 跌绿）
-    if (this._hasVolume && this._volH > 0) {
+    if (this._showVolumeBars && this._volH > 0) {
       this._drawVolumeBars(ctx, bw);
     }
 
@@ -658,6 +663,53 @@
     ctx.fillText('万', this._padLeft - 6, bot);
     // 重置以免影响后续
     ctx.textBaseline = 'alphabetic';
+
+    // 均量线 MA5 / MA10
+    var self = this;
+    function _drawMA(period, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.4;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      var moved = false;
+      for (var k = self.viewStart; k <= self.viewEnd; k++) {
+        if (k - period + 1 < 0) continue; // 历史数据不足，跳过
+        var sum = 0, cnt = 0;
+        for (var m = k - period + 1; m <= k; m++) {
+          var vv = Number(data.volume[m]);
+          if (isFinite(vv) && vv >= 0) { sum += vv; cnt++; }
+        }
+        if (cnt < period) continue;
+        var avg = sum / cnt;
+        var x = self._xOf(k);
+        var y = bot - h * (avg / vMax);
+        if (y < top) y = top;
+        if (!moved) { ctx.moveTo(x, y); moved = true; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    if (this._showMA5) _drawMA(5, '#f59e0b');   // MA5: 黄
+    if (this._showMA10) _drawMA(10, '#2563eb'); // MA10: 蓝
+
+    // 顶部 legend（仅当有 MA 启用）
+    if (this._showMA5 || this._showMA10) {
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      var legendX = this._padLeft + 4;
+      var legendY = top - 2;
+      if (this._showMA5) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText('MA5', legendX, legendY - 12);
+        legendX += ctx.measureText('MA5').width + 10;
+      }
+      if (this._showMA10) {
+        ctx.fillStyle = '#2563eb';
+        ctx.fillText('MA10', legendX, legendY - 12);
+      }
+    }
   };
 
   YcctChart.prototype._drawMarkerTable = function (markers) {
