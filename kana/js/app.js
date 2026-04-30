@@ -230,6 +230,17 @@
         return (a.created_at || '') < (b.created_at || '') ? 1 : -1;
       });
       renderStockList();
+      // URL `?id=N` 自动选中对应股票（来自手机端列表跳转）
+      var m = location.search.match(/[?&]id=(\d+)/);
+      if (m) {
+        var wantId = +m[1];
+        var found = state.stocks.some(function (s) { return +s.id === wantId; });
+        if (found) {
+          switchStock(wantId);
+        } else {
+          toast('找不到 id=' + wantId + ' 的股票');
+        }
+      }
     }).catch(function (e) {
       toast('加载股票列表失败: ' + e.message);
       console.error(e);
