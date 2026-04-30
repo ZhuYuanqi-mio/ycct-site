@@ -1796,7 +1796,7 @@
       return [si, ei];
     }
 
-    // 1) 黄色背景：选中区间（先画在最底层；价格区 + 量柱区都覆盖）
+    // 1) 黄色背景：选中区间（只覆盖价格区，不进入量柱区）
     if (startT && endT) {
       var range = findTimeRange(startT, endT);
       if (range[0] >= 0 && range[1] >= range[0]) {
@@ -1805,7 +1805,6 @@
         var bgW = Math.max(2, x1 - x0);
         ctx.fillStyle = 'rgba(250, 204, 21, 0.30)';
         ctx.fillRect(x0, padT, bgW, plotPriceH);
-        ctx.fillRect(x0, volTopY, bgW, plotVolH);
       }
     }
 
@@ -1982,14 +1981,14 @@
       if (rng[0] >= 0) {
         var sx = xOfIdx(rng[0]);
         ctx.beginPath();
-        ctx.moveTo(sx, padT); ctx.lineTo(sx, padT + plotH);
+        ctx.moveTo(sx, padT); ctx.lineTo(sx, padT + plotPriceH);
         ctx.stroke();
         ctx.fillText(ticks[rng[0]].t, sx, padT + plotH + 6);
       }
       if (rng[1] >= 0 && rng[1] !== rng[0]) {
         var ex = xOfIdx(rng[1]);
         ctx.beginPath();
-        ctx.moveTo(ex, padT); ctx.lineTo(ex, padT + plotH);
+        ctx.moveTo(ex, padT); ctx.lineTo(ex, padT + plotPriceH);
         ctx.stroke();
         ctx.fillText(ticks[rng[1]].t, ex, padT + plotH + 6);
       }
@@ -2037,14 +2036,14 @@
       var hx = xOfIdx(hi);
       var hy = yOfPrice(hp);
 
-      // 7.1 淡蓝色十字虚线
+      // 7.1 淡蓝色十字虚线（只画在价格区，不进入量柱区）
       ctx.save();
       ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
       ctx.lineWidth = 1;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(hx, padT);
-      ctx.lineTo(hx, padT + plotH);
+      ctx.lineTo(hx, padT + plotPriceH);
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(padL, hy);

@@ -468,7 +468,7 @@
       ctx.fillText(p.toFixed(1), this._padLeft - 6, y + 3);
     }
 
-    // 标记线（只画 view 内的；延伸到量柱底，便于对照成交量）
+    // 标记线（只画 view 内的；只覆盖 K 线主图，不延伸到量柱区）
     var markers = this.opts.markers || [];
     var markersSorted = markers.slice().sort(function (a, b) { return a - b; });
     ctx.strokeStyle = COLOR_MARKER;
@@ -480,7 +480,7 @@
       var xM = this._xOf(idxM);
       ctx.beginPath();
       ctx.moveTo(xM, this._chartTop);
-      ctx.lineTo(xM, this._volBottom);
+      ctx.lineTo(xM, this._chartBottom);
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -539,7 +539,7 @@
     for (var xi = this.viewStart; xi <= this.viewEnd; xi += step) drawXLabel(xi);
     if ((this.viewEnd - this.viewStart) % step !== 0) drawXLabel(this.viewEnd);
 
-    // hover
+    // hover（只画在 K 线主图内，不进入量柱区）
     if (this._isInView(this.hoverIdx)) {
       var hx = this._xOf(this.hoverIdx);
       ctx.strokeStyle = 'rgba(17,24,39,0.25)';
@@ -547,7 +547,7 @@
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(hx, this._chartTop);
-      ctx.lineTo(hx, this._volBottom);
+      ctx.lineTo(hx, this._chartBottom);
       ctx.stroke();
       ctx.setLineDash([]);
       var lblText = data.dates[this.hoverIdx].slice(5) + '   ' + data.close[this.hoverIdx].toFixed(2);
