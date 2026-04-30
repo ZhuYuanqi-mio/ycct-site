@@ -1522,10 +1522,23 @@
     var srcEnd = '';
     if (src && src.source && src.source.length > 0) {
       srcDate = src.source[0].date || '';
-      var times = src.source.map(function (s) { return s.time; }).filter(Boolean).sort();
-      if (times.length > 0) {
-        srcStart = times[0];
-        srcEnd = times[times.length - 1];
+      // source[].time 既可能是单点 'HH:MM'（双击单元格累加），也可能是
+      // 范围字符串 'HH:MM~HH:MM'（按区间累加）。两种都拆开后取最早 / 最晚。
+      var allTimes = [];
+      src.source.forEach(function (s) {
+        if (!s || !s.time) return;
+        if (s.time.indexOf('~') >= 0) {
+          var parts = s.time.split('~');
+          if (parts[0]) allTimes.push(parts[0]);
+          if (parts[1]) allTimes.push(parts[1]);
+        } else {
+          allTimes.push(s.time);
+        }
+      });
+      allTimes.sort();
+      if (allTimes.length > 0) {
+        srcStart = allTimes[0];
+        srcEnd = allTimes[allTimes.length - 1];
       }
     }
 
