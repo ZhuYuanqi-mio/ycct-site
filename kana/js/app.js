@@ -126,11 +126,9 @@
     for (var i = 0; i < state.stocks.length; i++) {
       var s = state.stocks[i];
       var active = s.id === state.activeStockId ? ' active' : '';
-      var ts = s.created_at ? formatTime(s.created_at) : '';
       html += '<div class="stock-item' + active + '" data-id="' + s.id + '">' +
         '<div class="stock-name">' + escapeHtml(s.name) + '</div>' +
         '<div class="stock-code">' + escapeHtml(s.code) + '</div>' +
-        '<div class="stock-meta">加入时间 ' + ts + '</div>' +
         '<span class="stock-del" title="删除股票"><svg class="ico"><use href="#icon-trash"/></svg></span>' +
         '</div>';
     }
