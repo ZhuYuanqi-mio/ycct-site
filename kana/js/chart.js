@@ -216,8 +216,9 @@
         return;
       }
 
-      // K 线柱列悬停（仅在 K 线区域内）
-      if (py < self._chartTop || py > self._chartBottom) {
+      // K 线柱列悬停（K 线区 + 量柱区都算）
+      var hoverBottom = self._volBottom || self._chartBottom;
+      if (py < self._chartTop || py > hoverBottom) {
         if (self.hoverIdx !== -1) {
           self.hoverIdx = -1;
           self.draw();
@@ -391,7 +392,19 @@
     this._plotH = this._isMobile ? 320 : 460;
     this._chartBottom = this._chartTop + this._plotH;
 
-    this._sec1Top = this._chartBottom + 30;
+    // 量柱区：高度 = 4 行（涨跌幅/价格/成交额/成交量）的总高
+    if (hasVolume) {
+      this._volTop = this._chartBottom + 8;
+      this._volH = 4 * this._rowH;
+      this._volBottom = this._volTop + this._volH;
+    } else {
+      this._volTop = this._chartBottom;
+      this._volH = 0;
+      this._volBottom = this._chartBottom;
+    }
+
+    // 标注表起始：量柱区下方 + X 轴标签空间
+    this._sec1Top = this._volBottom + 30;
     this._sec2Top = this._sec1Top + this._sec1H;
 
     var totalH = this._sec2Top + this._sec2H + 24;
@@ -455,7 +468,7 @@
       ctx.fillText(p.toFixed(1), this._padLeft - 6, y + 3);
     }
 
-    // 标记线（只画 view 内的）
+    // 标记线（只画 view 内的；延伸到量柱底，便于对照成交量）
     var markers = this.opts.markers || [];
     var markersSorted = markers.slice().sort(function (a, b) { return a - b; });
     ctx.strokeStyle = COLOR_MARKER;
@@ -467,7 +480,7 @@
       var xM = this._xOf(idxM);
       ctx.beginPath();
       ctx.moveTo(xM, this._chartTop);
-      ctx.lineTo(xM, this._chartBottom);
+      ctx.lineTo(xM, this._volBottom);
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -502,7 +515,13 @@
       }
     }
 
-    // X 轴标签（年 / 月日 两行；只显示 view 内）
+    // 量柱区（同花顺规则：close >= open 涨红、close < open 跌绿）
+    if (this._hasVolume && this._volH > 0) {
+      this._drawVolumeBars(ctx, bw);
+    }
+
+    // X 轴标签（年 / 月日 两行；只显示 view 内；位于量柱底部下方）
+    var xLabelTopY = this._volBottom;
     var step = Math.max(1, Math.floor(viewN / 16));
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'center';
@@ -513,9 +532,9 @@
       var md = ds.slice(5).replace('-', '');
       var xL = this._xOf(idx);
       ctx.fillStyle = '#bdbdbd';
-      ctx.fillText(y, xL, this._chartBottom + 11);
+      ctx.fillText(y, xL, xLabelTopY + 11);
       ctx.fillStyle = COLOR_TEXT_3;
-      ctx.fillText(md, xL, this._chartBottom + 23);
+      ctx.fillText(md, xL, xLabelTopY + 23);
     }.bind(this);
     for (var xi = this.viewStart; xi <= this.viewEnd; xi += step) drawXLabel(xi);
     if ((this.viewEnd - this.viewStart) % step !== 0) drawXLabel(this.viewEnd);
@@ -528,7 +547,7 @@
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(hx, this._chartTop);
-      ctx.lineTo(hx, this._chartBottom);
+      ctx.lineTo(hx, this._volBottom);
       ctx.stroke();
       ctx.setLineDash([]);
       var lblText = data.dates[this.hoverIdx].slice(5) + '   ' + data.close[this.hoverIdx].toFixed(2);
@@ -570,6 +589,76 @@
     if (v == null || !isFinite(v) || v === 0) return COLOR_FLAT;
     return v > 0 ? COLOR_UP : COLOR_DOWN;
   }
+
+  // 日 K 主图下方的量柱（同花顺规则：close >= open 涨红、close < open 跌绿）
+  YcctChart.prototype._drawVolumeBars = function (ctx, bw) {
+    var data = this.opts.data;
+    if (!data || !data.volume) return;
+    var top = this._volTop;
+    var bot = this._volBottom;
+    var h = this._volH;
+    if (h <= 0) return;
+    var left = this._padLeft;
+    var right = this._padLeft + this._plotW;
+
+    // 找视窗内 vMax
+    var vMax = 0;
+    for (var i = this.viewStart; i <= this.viewEnd; i++) {
+      var v = Number(data.volume[i]);
+      if (isFinite(v) && v > vMax) vMax = v;
+    }
+    // 量柱区背景框线（轻量灰）
+    ctx.strokeStyle = COLOR_GRID;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(left, top);
+    ctx.lineTo(right, top);
+    ctx.moveTo(left, bot);
+    ctx.lineTo(right, bot);
+    ctx.stroke();
+    if (vMax <= 0) return;
+
+    // 柱子绘制
+    for (var j = this.viewStart; j <= this.viewEnd; j++) {
+      var vol = Number(data.volume[j]);
+      if (!isFinite(vol) || vol <= 0) continue;
+      var op = data.open[j], cl = data.close[j];
+      var col = (cl >= op) ? COLOR_UP : COLOR_DOWN;
+      var x = this._xOf(j);
+      var bh = h * (vol / vMax);
+      if (bh < 1) bh = 1;
+      var by = bot - bh;
+      // 涨用空心、跌用实心（与蜡烛保持一致风格）
+      if (cl >= op) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - bw / 2, by, bw, bh);
+      } else {
+        ctx.fillStyle = col;
+        ctx.fillRect(x - bw / 2, by, bw, bh);
+      }
+    }
+
+    // 左轴刻度（顶 vMax / 中 vMax/2 / 底 「万」单位）
+    function _fmtVol(v) {
+      var x = v / 1e4;
+      if (x >= 1000) return Math.round(x).toString();
+      if (x >= 100) return x.toFixed(0);
+      if (x >= 10) return x.toFixed(1);
+      return x.toFixed(2);
+    }
+    ctx.fillStyle = COLOR_TEXT_3;
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(_fmtVol(vMax), this._padLeft - 6, top);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(_fmtVol(vMax / 2), this._padLeft - 6, (top + bot) / 2);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('万', this._padLeft - 6, bot);
+    // 重置以免影响后续
+    ctx.textBaseline = 'alphabetic';
+  };
 
   YcctChart.prototype._drawMarkerTable = function (markers) {
     var ctx = this.ctx;
