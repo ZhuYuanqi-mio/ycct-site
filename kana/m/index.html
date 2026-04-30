@@ -333,7 +333,7 @@
   els.list.addEventListener('click', function (e) {
     var tg = e.target.closest('.toggle');
     if (tg) {
-      var sid = tg.getAttribute('data-toggle-id');
+      var sid = Number(tg.getAttribute('data-toggle-id'));
       var willOn = !tg.classList.contains('on');
       tg.classList.add('disabled');
       setStockVisible(sid, willOn).then(function () {
