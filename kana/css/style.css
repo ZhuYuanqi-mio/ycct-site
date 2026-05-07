@@ -215,6 +215,20 @@ body {
   background: var(--accent);
   border-radius: 0 3px 3px 0;
 }
+/* ?all=1 模式下被隐藏的股票：名字变浅 + 显示「已隐藏」灰色标签 */
+.stock-item.is-hidden .stock-name,
+.stock-item.is-hidden .stock-code { opacity: 0.55; }
+.stock-hidden-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 3px;
+  vertical-align: middle;
+}
 .stock-name {
   font-weight: 600;
   font-size: 13px;

@@ -3,6 +3,13 @@
 // =============================================================
 (function () {
 
+  // URL 参数 ?all=1 时跳过 pc_visible 过滤，看全部股票（管理员视图）
+  var SHOW_ALL_STOCKS = (function () {
+    try {
+      return /[?&]all=1\b/.test(location.search);
+    } catch (e) { return false; }
+  })();
+
   // ============== State ==============
   var state = {
     stocks: [],          // [{id, name, code, created_at}]
@@ -124,9 +131,10 @@
     }
     var html = '';
     // 过滤：pc_visible == false 的股票不出现在电脑端列表（手机端开关控制）
-    var visibleStocks = state.stocks.filter(function (s) {
-      return s.pc_visible !== false;
-    });
+    // ?all=1 模式下跳过过滤，看全部股票
+    var visibleStocks = SHOW_ALL_STOCKS
+      ? state.stocks.slice()
+      : state.stocks.filter(function (s) { return s.pc_visible !== false; });
     if (visibleStocks.length === 0) {
       list.innerHTML = '<div class="empty-tip">暂无显示的股票<br>到 <code>/kana/m/</code> 打开手机端列表的开关</div>';
       renderMobileStockMenu();
@@ -135,8 +143,12 @@
     for (var i = 0; i < visibleStocks.length; i++) {
       var s = visibleStocks[i];
       var active = s.id === state.activeStockId ? ' active' : '';
-      html += '<div class="stock-item' + active + '" data-id="' + s.id + '">' +
-        '<div class="stock-name">' + escapeHtml(s.name) + '</div>' +
+      var hiddenCls = (SHOW_ALL_STOCKS && s.pc_visible === false) ? ' is-hidden' : '';
+      var hiddenTag = (SHOW_ALL_STOCKS && s.pc_visible === false)
+        ? ' <span class="stock-hidden-tag">已隐藏</span>'
+        : '';
+      html += '<div class="stock-item' + active + hiddenCls + '" data-id="' + s.id + '">' +
+        '<div class="stock-name">' + escapeHtml(s.name) + hiddenTag + '</div>' +
         '<div class="stock-code">' + escapeHtml(s.code) + '</div>' +
         '<span class="stock-del" title="删除股票"><svg class="ico"><use href="#icon-trash"/></svg></span>' +
         '</div>';
@@ -189,8 +201,10 @@
         ? current.name + ' (' + current.code + ')'
         : '选择股票';
     }
-    // 下拉项（过滤掉 pc_visible == false 的）
-    var visibleStocks = state.stocks.filter(function (s) { return s.pc_visible !== false; });
+    // 下拉项（过滤掉 pc_visible == false 的；?all=1 模式下显示全部）
+    var visibleStocks = SHOW_ALL_STOCKS
+      ? state.stocks.slice()
+      : state.stocks.filter(function (s) { return s.pc_visible !== false; });
     if (visibleStocks.length === 0) {
       els.mobileStockMenu.innerHTML = '<div class="menu-empty">还没有股票</div>';
       return;
