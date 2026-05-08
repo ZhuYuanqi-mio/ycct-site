@@ -495,7 +495,7 @@
     for (var i = this.viewStart; i <= this.viewEnd; i++) {
       var x2 = this._xOf(i);
       var o = data.open[i], h = data.high[i], l = data.low[i], c = data.close[i];
-      var up = c >= o;
+      var up = _isUpAt(data, i);
       var color = up ? COLOR_UP : COLOR_DOWN;
       var yH = this._yOfPrice(h), yL = this._yOfPrice(l);
       var yO = this._yOfPrice(o), yC = this._yOfPrice(c);
@@ -595,7 +595,28 @@
     return v > 0 ? COLOR_UP : COLOR_DOWN;
   }
 
-  // 日 K 主图下方的量柱（同花顺规则：close >= open 涨红、close < open 跌绿）
+  // 判定第 i 根 K 线"涨/跌"
+  // 规则：
+  //   c > o → 涨；c < o → 跌；c == o（一字板/平盘）→ 与前日收盘比
+  //   首根没有前日参考时默认涨（红）
+  function _isUpAt(data, i) {
+    var o = Number(data.open[i]);
+    var c = Number(data.close[i]);
+    if (!isFinite(o) || !isFinite(c)) return true;
+    if (c > o) return true;
+    if (c < o) return false;
+    // 平盘 / 一字：看前日收盘
+    if (i > 0) {
+      var pc = Number(data.close[i - 1]);
+      if (isFinite(pc)) {
+        if (c > pc) return true;
+        if (c < pc) return false;
+      }
+    }
+    return true;
+  }
+
+  // 日 K 主图下方的量柱（同花顺规则：close >= open 涨红、close < open 跌绿；一字板按 vs 前日收盘判定）
   YcctChart.prototype._drawVolumeBars = function (ctx, bw) {
     var data = this.opts.data;
     if (!data || !data.volume) return;
@@ -627,14 +648,14 @@
     for (var j = this.viewStart; j <= this.viewEnd; j++) {
       var vol = Number(data.volume[j]);
       if (!isFinite(vol) || vol <= 0) continue;
-      var op = data.open[j], cl = data.close[j];
-      var col = (cl >= op) ? COLOR_UP : COLOR_DOWN;
+      var up = _isUpAt(data, j);
+      var col = up ? COLOR_UP : COLOR_DOWN;
       var x = this._xOf(j);
       var bh = h * (vol / vMax);
       if (bh < 1) bh = 1;
       var by = bot - bh;
       // 涨用空心、跌用实心（与蜡烛保持一致风格）
-      if (cl >= op) {
+      if (up) {
         ctx.strokeStyle = col;
         ctx.lineWidth = 1;
         ctx.strokeRect(x - bw / 2, by, bw, bh);
